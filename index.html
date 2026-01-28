@@ -17,9 +17,9 @@
 
   <!-- =========================================================
        [ÄNDERUNG/MARKER 1 – NEU]
-       Hintergrund-GIF-Layer für Fakebilder_Shoah.gif
-       (wird ausschliesslich über CSS gesteuert,
-       blockiert keine Klicks, keine Interaktion)
+       Hintergrund-GIF-Layer (wird über CSS .bg-gif gesteuert)
+       Datei: assets/img/Fakebilder_Shoah.gif
+       Hinweis: pointer-events wird in CSS deaktiviert, blockiert keine Klicks.
   ========================================================== -->
   <div class="bg-gif" aria-hidden="true"></div>
 
@@ -31,18 +31,18 @@
       <button class="icon-btn" id="btnToggleSidebar" aria-label="Navigation ein-/ausblenden" title="Navigation ein-/ausblenden">☰</button>
       <div class="brand">
         <div class="brand__title">Shoah-Erinnerung & KI-Fakes</div>
-        <div class="brand__subtitle">Gefälschte KI-Bilder/Videos – Analyse, Ethik, Handlung</div>
+        <div class="brand__subtitle">Gefälschte Bilder/Videos – Analyse · Ethik · Handlung</div>
       </div>
     </div>
 
     <div class="topbar__right">
-      <div class="pill" id="pillSession">
+      <div class="pill" id="pillSession" title="Session-ID (für lokale Speicherung)">
         <span class="pill__label">Session</span>
         <span class="pill__value" id="sessionId">—</span>
       </div>
 
       <button class="btn btn--ghost" id="btnOpenTeacher" title="Lehrer*innenbereich öffnen">Lehrer*innenbereich</button>
-      <button class="btn btn--primary" id="btnResetAll" title="Fortschritt zurücksetzen">Reset</button>
+      <button class="btn btn--primary" id="btnResetAll" title="Alles zurücksetzen">Reset</button>
     </div>
   </header>
 
@@ -55,35 +55,36 @@
          SIDEBAR
     ========================================================== -->
     <aside class="sidebar" id="sidebar" aria-label="Navigation">
+
       <div class="navBlock">
         <div class="navBlock__title">Start</div>
         <nav class="nav" aria-label="Startnavigation">
-          <a class="nav__item" href="#start" data-target="start">Überblick & Ziele</a>
-          <a class="nav__item" href="#sensibel" data-target="sensibel">Sensibler Umgang</a>
-          <a class="nav__item" href="#video" data-target="video">Video-Einstieg (3×)</a>
+          <button class="nav__item" data-target="start">Überblick & Ziele</button>
+          <button class="nav__item" data-target="sensibel">Sensibler Umgang</button>
+          <button class="nav__item" data-target="video-einstieg">Video-Einstieg (3×)</button>
         </nav>
       </div>
 
       <div class="navBlock">
         <div class="navBlock__title">Module</div>
         <nav class="nav" aria-label="Modulnavigation">
-          <a class="nav__item" href="#m1" data-target="m1">Modul 1: Shoah-Erinnerung & Quellen</a>
-          <a class="nav__item" href="#m2" data-target="m2">Modul 2: KI-Fakes – Mechanismen</a>
-          <a class="nav__item" href="#m3" data-target="m3">Modul 3: Strategien der Verfälschung</a>
-          <a class="nav__item" href="#m4" data-target="m4">Modul 4: Analyse-Labor (Checklisten)</a>
-          <a class="nav__item" href="#m5" data-target="m5">Modul 5: Plattformlogik, Meme-Kultur</a>
-          <a class="nav__item" href="#m6" data-target="m6">Modul 6: Recht, Ethik, Verantwortung</a>
-          <a class="nav__item" href="#m7" data-target="m7">Modul 7: Handeln – Melden & Gegenstrategien</a>
-          <a class="nav__item" href="#m8" data-target="m8">Projekt (Modul 8) + Quiz + Reflexion</a>
+          <button class="nav__item" data-target="modul-1">Modul 1: Shoah-Erinnerung & Quellen</button>
+          <button class="nav__item" data-target="modul-2">Modul 2: KI-Fakes – Mechanismen</button>
+          <button class="nav__item" data-target="modul-3">Modul 3: Strategien der Verfälschung</button>
+          <button class="nav__item" data-target="modul-4">Modul 4: Analyse-Labor (Checklisten)</button>
+          <button class="nav__item" data-target="modul-5">Modul 5: Plattformlogik, Meme-Kultur</button>
+          <button class="nav__item" data-target="modul-6">Modul 6: Recht, Ethik, Verantwortung</button>
+          <button class="nav__item" data-target="modul-7">Modul 7: Handeln – Melden & Gegenstrategien</button>
+          <button class="nav__item" data-target="modul-8">Projekt (Modul 8) + Quiz + Reflexion</button>
         </nav>
       </div>
 
       <div class="navBlock">
-        <div class="navBlock__title">Direktzugriff</div>
-        <nav class="nav" aria-label="Direktzugriff">
-          <a class="nav__item" href="#quiz" data-target="quiz">Direkt zum Quiz</a>
-          <a class="nav__item" href="#links" data-target="links">Alle Links/Material</a>
-          <a class="nav__item" href="#export" data-target="export">Export</a>
+        <div class="navBlock__title">Direkt</div>
+        <nav class="nav" aria-label="Direktnavigation">
+          <button class="nav__item" data-target="quiz">Direkt zum Quiz</button>
+          <button class="nav__item" data-target="links">Alle Links/Material</button>
+          <button class="nav__item" data-target="export">Export</button>
         </nav>
       </div>
 
@@ -97,6 +98,7 @@
         </div>
         <div class="progressBox__meta" id="progressMeta">0 / 0 erledigt</div>
       </div>
+
     </aside>
 
     <!-- =========================================================
@@ -117,69 +119,44 @@
           </p>
 
           <div class="toolbar">
-            <button class="btn btn--primary" data-jump="#video">Zum Video-Einstieg</button>
-            <button class="btn btn--ghost" data-jump="#quiz">Direkt zum Quiz</button>
-            <button class="btn btn--ghost" data-jump="#links">Alle Links/Material</button>
-          </div>
-
-          <div class="callout callout--info" style="margin-top:14px;">
-            <div>
-              <strong>Hinweis:</strong> Das Thema Shoah kann emotional belasten. Diese Umgebung nutzt bewusst keine grafischen Gewaltbilder.
-              Bitte besprecht vorab: Respekt, Schutzräume, Auszeiten, Trigger-Signale, achtsame Sprache.
-            </div>
+            <button class="btn btn--primary" data-jump="video-einstieg">Zum Video-Einstieg</button>
+            <button class="btn btn--ghost" data-jump="quiz">Direkt zum Quiz</button>
+            <button class="btn btn--ghost" data-jump="links">Alle Links/Material</button>
           </div>
         </div>
       </section>
 
       <!-- =========================================================
-           SENSIBLER UMGANG
+           SENSIBELER UMGANG
       ========================================================== -->
       <section class="section" id="sensibel">
         <h2>Sensibler Umgang & Unterrichtsrahmen</h2>
 
-        <div class="cardsGrid">
-          <div class="card card--wide">
-            <div class="callout callout--warn">
-              <div>
-                <strong>Content-Hinweis:</strong> Das Thema Shoah kann emotional belasten. Diese Umgebung nutzt bewusst keine grafischen Bilder.
-                Bitte besprecht vorab: <strong>Respekt, Schutzräume, Auszeiten, Trigger-Signale, achtsame Sprache.</strong>
-              </div>
+        <div class="card card--wide">
+          <div class="callout callout--warn">
+            <div>
+              <strong>Content-Hinweis</strong><br />
+              Das Thema Shoah kann emotional belasten.<br />
+              Diese Umgebung nutzt bewusst keine grafischen Bilder.<br />
+              Bitte besprecht vorab:<br />
+              <strong>Respekt, Schutzräume, Auszeiten, Trigger-Signale, achtsame Sprache.</strong>
             </div>
+          </div>
 
-            <div style="height:14px;"></div>
+          <div style="height: 12px;"></div>
 
-            <h3>Arbeitsvereinbarungen</h3>
-            <div class="checklist">
-              <div class="check">
-                <input type="checkbox" id="agree1" />
-                <label for="agree1">
-                  Ich arbeite respektvoll und genau (keine Trivialisierung, keine Ironie über Opfer/Überlebende).
-                </label>
-              </div>
-              <div class="check">
-                <input type="checkbox" id="agree2" />
-                <label for="agree2">
-                  Ich teile keine ungeprüften Inhalte (Bilder/Videos/Behauptungen) weiter.
-                </label>
-              </div>
-              <div class="check">
-                <input type="checkbox" id="agree3" />
-                <label for="agree3">
-                  Ich dokumentiere meine Prüfschritte (Transparenz statt „Bauchgefühl“).
-                </label>
-              </div>
-              <div class="check">
-                <input type="checkbox" id="agree4" />
-                <label for="agree4">
-                  Ich halte Pausen ein und respektiere Grenzen (eigene und die anderer).
-                </label>
-              </div>
-            </div>
+          <h3>Arbeitsvereinbarungen</h3>
 
-            <div class="toolbar" style="margin-top:14px;">
-              <button class="btn btn--primary" id="btnAgreeSave">Vereinbarungen speichern</button>
-              <button class="btn btn--ghost" id="btnAgreeClear">Zurücksetzen</button>
-            </div>
+          <div class="checklist">
+            <label class="check"><input type="checkbox" id="agree_a" /> <span>Ich arbeite respektvoll und genau (keine Trivialisierung, keine ironische Sprache über Opfer/Überlebende).</span></label>
+            <label class="check"><input type="checkbox" id="agree_b" /> <span>Ich teile keine ungeprüften Inhalte weiter (auch nicht „zur Empörung“).</span></label>
+            <label class="check"><input type="checkbox" id="agree_c" /> <span>Ich dokumentiere meine Prüfschritte (Transparenz statt „Bauchgefühl“).</span></label>
+            <label class="check"><input type="checkbox" id="agree_d" /> <span>Ich halte Pausen ein und respektiere Grenzen (eigene und die anderer).</span></label>
+          </div>
+
+          <div class="toolbar" style="margin-top: 12px;">
+            <button class="btn btn--primary" id="btnSaveAgreements">Vereinbarungen speichern</button>
+            <button class="btn btn--ghost" id="btnResetAgreements">Zurücksetzen</button>
           </div>
         </div>
       </section>
@@ -187,139 +164,111 @@
       <!-- =========================================================
            VIDEO-EINSTIEG (3×)
       ========================================================== -->
-      <section class="section" id="video">
+      <section class="section" id="video-einstieg">
         <h2>Video-Einstieg (3×)</h2>
 
         <div class="cardsGrid">
           <div class="card">
             <h3>Video 1: Einstieg (Kurzimpuls)</h3>
-            <p class="subtle">Aufgabe: Notiere 3 Risiken und 2 Schutzstrategien, die dir spontan auffallen.</p>
+            <p>Aufgabe: Notiere 3 Risiken und 2 Schutzstrategien, die dir spontan auffallen.</p>
 
             <div class="videoBox">
-              <iframe class="video" id="video1" title="Video 1" src="" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+              <iframe class="video" title="Video 1" src="https://www.youtube.com/embed/92Q5raXcur4" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
             </div>
 
             <div class="inputRow">
               <div class="label">Notizen</div>
-              <textarea class="input" id="video1Notes" placeholder="3 Risiken, 2 Schutzstrategien..."></textarea>
+              <textarea class="input" id="notes_video1" placeholder="3 Risiken, 2 Schutzstrategien..."></textarea>
             </div>
 
             <div class="toolbar">
-              <button class="btn btn--primary" data-save="video1Notes">Speichern</button>
-              <button class="btn btn--ghost" data-clear="video1Notes">Löschen</button>
+              <button class="btn btn--primary" data-save="notes_video1">Speichern</button>
+              <button class="btn btn--ghost" data-clear="notes_video1">Löschen</button>
             </div>
           </div>
 
           <div class="card">
             <h3>Video 2: Kontext & Verantwortung</h3>
-            <p class="subtle">Aufgabe: Welche Verantwortung haben Plattformen, Lehrpersonen und User*innen?</p>
+            <p>Aufgabe: Welche Verantwortung haben Plattformen, Lehrpersonen und User*innen?</p>
 
             <div class="videoBox">
-              <iframe class="video" id="video2" title="Video 2" src="" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+              <iframe class="video" title="Video 2" src="https://www.youtube.com/embed/uP14un_PFoQ" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
             </div>
 
             <div class="inputRow">
               <div class="label">Notizen</div>
-              <textarea class="input" id="video2Notes" placeholder="Verantwortung: Plattform – Schule – Individuum..."></textarea>
+              <textarea class="input" id="notes_video2" placeholder="Verantwortung: Plattform – Schule – Individuum..."></textarea>
             </div>
 
             <div class="toolbar">
-              <button class="btn btn--primary" data-save="video2Notes">Speichern</button>
-              <button class="btn btn--ghost" data-clear="video2Notes">Löschen</button>
+              <button class="btn btn--primary" data-save="notes_video2">Speichern</button>
+              <button class="btn btn--ghost" data-clear="notes_video2">Löschen</button>
             </div>
           </div>
 
           <div class="card">
             <h3>Video 3: Erkennen & Einordnen</h3>
-            <p class="subtle">Aufgabe: Welche Hinweise könnten auf KI-Manipulation hindeuten? (mind. 5)</p>
+            <p>Aufgabe: Welche Hinweise könnten auf KI-Manipulation hindeuten? (mind. 5)</p>
 
             <div class="videoBox">
-              <iframe class="video" id="video3" title="Video 3" src="" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+              <iframe class="video" title="Video 3" src="https://www.youtube.com/embed/fQl9Xm9xq9Y" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
             </div>
 
             <div class="inputRow">
               <div class="label">Notizen</div>
-              <textarea class="input" id="video3Notes" placeholder="Hinweise: Licht/Schatten, Texturen, Metadaten, Quelle, Kontext..."></textarea>
+              <textarea class="input" id="notes_video3" placeholder="Hinweise: Licht/Schatten, Texturen, Metadaten, Quelle, Kontext..."></textarea>
             </div>
 
             <div class="toolbar">
-              <button class="btn btn--primary" data-save="video3Notes">Speichern</button>
-              <button class="btn btn--ghost" data-clear="video3Notes">Löschen</button>
+              <button class="btn btn--primary" data-save="notes_video3">Speichern</button>
+              <button class="btn btn--ghost" data-clear="notes_video3">Löschen</button>
             </div>
           </div>
         </div>
       </section>
 
       <!-- =========================================================
-           MODUL 1
+           MODUL 1: Shoah-Erinnerung & Quellen
       ========================================================== -->
-      <section class="section" id="m1">
+      <section class="section" id="modul-1">
         <h2>Modul 1: Shoah-Erinnerung & Quellen</h2>
 
         <div class="cardsGrid">
           <div class="card">
             <h3>Warum Quellenkritik zentral ist</h3>
             <p>
-              Erinnerungskultur basiert auf Zeugnissen, Dokumenten, Forschung, Kontext. KI-Fakes können scheinbare „Belege“ erzeugen,
+              Erinnerungskultur basiert auf Zeugnissen, Dokumenten, Forschung und Kontext. KI-Fakes können scheinbare „Belege“ erzeugen,
               die Vertrauen missbrauchen. Daher: prüfen, einordnen, transparent dokumentieren.
             </p>
 
-            <div class="accordion">
-              <div class="accordion__header" role="button" tabindex="0" aria-expanded="false">
-                <span><strong>Mini-Input:</strong> Was ist eine Quelle?</span>
-                <span class="chev">▾</span>
-              </div>
-              <div class="accordion__body" hidden>
-                <p>
-                  Quelle = jedes Material, das Informationen über die Vergangenheit/Behauptungen liefert (Dokumente, Fotos, Berichte, Artefakte).
-                  Wichtig: Herkunft, Kontext, Authentizität, Intention.
-                </p>
-              </div>
-            </div>
-
             <div class="inputRow">
               <div class="label">Arbeitsauftrag</div>
-              <textarea class="input" id="m1Task" placeholder="Formuliere in eigenen Worten: Warum ist Quellenkritik bei KI-Fakes besonders wichtig?"></textarea>
+              <textarea class="input" id="m1_task" placeholder="Formuliere in eigenen Worten: Warum ist Quellenkritik bei KI-Fakes besonders wichtig?"></textarea>
             </div>
 
             <div class="toolbar">
-              <button class="btn btn--primary" data-save="m1Task">Speichern</button>
-              <button class="btn btn--ghost" data-clear="m1Task">Löschen</button>
+              <button class="btn btn--primary" data-save="m1_task">Speichern</button>
+              <button class="btn btn--ghost" data-clear="m1_task">Löschen</button>
             </div>
           </div>
 
           <div class="card">
             <h3>Checkliste: Erste Quellenprüfung</h3>
             <div class="checklist">
-              <div class="check">
-                <input type="checkbox" id="m1c1" />
-                <label for="m1c1">Quelle benannt (Autor*in/Institution/Plattform)?</label>
-              </div>
-              <div class="check">
-                <input type="checkbox" id="m1c2" />
-                <label for="m1c2">Datum/Ort/konkreter Kontext erkennbar?</label>
-              </div>
-              <div class="check">
-                <input type="checkbox" id="m1c3" />
-                <label for="m1c3">Gibt es ein Original / Primärbeleg (Archiv, Museum, Forschungsseite)?</label>
-              </div>
-              <div class="check">
-                <input type="checkbox" id="m1c4" />
-                <label for="m1c4">Mehrere unabhängige Bestätigungen (Quervergleich)?</label>
-              </div>
-              <div class="check">
-                <input type="checkbox" id="m1c5" />
-                <label for="m1c5">Motiv/Absicht der Veröffentlichung reflektiert?</label>
-              </div>
+              <label class="check"><input type="checkbox" id="m1c1" /> <span>Quelle benannt (Autor*in/Institution/Plattform)?</span></label>
+              <label class="check"><input type="checkbox" id="m1c2" /> <span>Datum/Ort/konkreter Kontext erkennbar?</span></label>
+              <label class="check"><input type="checkbox" id="m1c3" /> <span>Gibt es ein Original / Primärbeleg (Archiv, Museum, Forschungsseite)?</span></label>
+              <label class="check"><input type="checkbox" id="m1c4" /> <span>Mehrere unabhängige Bestätigungen (Quervergleich)?</span></label>
+              <label class="check"><input type="checkbox" id="m1c5" /> <span>Motiv/Absicht der Veröffentlichung reflektiert?</span></label>
             </div>
           </div>
         </div>
       </section>
 
       <!-- =========================================================
-           MODUL 2
+           MODUL 2: KI-Fakes – Mechanismen
       ========================================================== -->
-      <section class="section" id="m2">
+      <section class="section" id="modul-2">
         <h2>Modul 2: KI-Fakes – Mechanismen</h2>
 
         <div class="cardsGrid">
@@ -330,52 +279,30 @@
               Dabei können Artefakte, Inkonsistenzen und unplausible Kontexte entstehen – oder bewusst kaschiert werden.
             </p>
 
-            <div class="accordion">
-              <div class="accordion__header" role="button" tabindex="0" aria-expanded="false">
-                <span><strong>Hinweis:</strong> Typische Artefakte</span>
-                <span class="chev">▾</span>
-              </div>
-              <div class="accordion__body" hidden>
-                <ul>
-                  <li>Unplausible Schrift/Typografie, falsche Beschilderung</li>
-                  <li>Unstimmige Schatten/Lichtquellen</li>
-                  <li>Unnatürliche Texturen/„Wachs“-Effekt</li>
-                  <li>Fehler an Händen/Gesichtern/Uniformdetails</li>
-                  <li>Kontextfehler (Ort/Zeit/Objekte passen nicht zusammen)</li>
-                </ul>
-              </div>
-            </div>
-
             <div class="inputRow">
               <div class="label">Arbeitsauftrag</div>
-              <textarea class="input" id="m2Task" placeholder="Nenne 5 typische Hinweise auf KI-Fakes und erkläre kurz, warum sie verdächtig sind."></textarea>
+              <textarea class="input" id="m2_task" placeholder="Nenne 5 typische Hinweise auf KI-Fakes und erkläre kurz, warum sie verdächtig sind."></textarea>
             </div>
 
             <div class="toolbar">
-              <button class="btn btn--primary" data-save="m2Task">Speichern</button>
-              <button class="btn btn--ghost" data-clear="m2Task">Löschen</button>
+              <button class="btn btn--primary" data-save="m2_task">Speichern</button>
+              <button class="btn btn--ghost" data-clear="m2_task">Löschen</button>
             </div>
           </div>
 
           <div class="card">
-            <h3>MiniCard: Begriffe</h3>
-            <div class="miniCard">
-              <p><strong>Deepfake:</strong> KI-manipuliertes Video/Audio (Gesicht/Stimme).</p>
-            </div>
-            <div class="miniCard" style="margin-top:10px;">
-              <p><strong>Synthetic Media:</strong> Sammelbegriff für KI-erzeugte Medien.</p>
-            </div>
-            <div class="miniCard" style="margin-top:10px;">
-              <p><strong>Prompting:</strong> Text-Anweisungen, die Inhalte steuern.</p>
-            </div>
+            <h3>Begriffe</h3>
+            <div class="miniCard"><p><strong>Deepfake:</strong> KI-manipuliertes Video/Audio (Gesicht/Stimme).</p></div>
+            <div class="miniCard" style="margin-top:10px;"><p><strong>Synthetic Media:</strong> Sammelbegriff für KI-erzeugte Medien.</p></div>
+            <div class="miniCard" style="margin-top:10px;"><p><strong>Prompting:</strong> Text-Anweisungen, die Inhalte steuern.</p></div>
           </div>
         </div>
       </section>
 
       <!-- =========================================================
-           MODUL 3
+           MODUL 3: Strategien der Verfälschung
       ========================================================== -->
-      <section class="section" id="m3">
+      <section class="section" id="modul-3">
         <h2>Modul 3: Strategien der Verfälschung</h2>
 
         <div class="cardsGrid">
@@ -392,17 +319,17 @@
 
             <div class="inputRow">
               <div class="label">Arbeitsauftrag</div>
-              <textarea class="input" id="m3Task" placeholder="Wähle 2 Strategien und beschreibe: Wie funktionieren sie? Woran erkennt man sie?"></textarea>
+              <textarea class="input" id="m3_task" placeholder="Wähle 2 Strategien und beschreibe: Wie funktionieren sie? Woran erkennt man sie?"></textarea>
             </div>
 
             <div class="toolbar">
-              <button class="btn btn--primary" data-save="m3Task">Speichern</button>
-              <button class="btn btn--ghost" data-clear="m3Task">Löschen</button>
+              <button class="btn btn--primary" data-save="m3_task">Speichern</button>
+              <button class="btn btn--ghost" data-clear="m3_task">Löschen</button>
             </div>
           </div>
 
           <div class="card">
-            <h3>Callout: Warum das gefährlich ist</h3>
+            <h3>Warum das gefährlich ist</h3>
             <div class="callout callout--warn">
               <div>
                 <strong>Gefahr:</strong> KI-Fakes können Vertrauen in Quellen zerstören und Opfer/Überlebende entwürdigen.
@@ -414,9 +341,9 @@
       </section>
 
       <!-- =========================================================
-           MODUL 4
+           MODUL 4: Analyse-Labor (Checklisten)
       ========================================================== -->
-      <section class="section" id="m4">
+      <section class="section" id="modul-4">
         <h2>Modul 4: Analyse-Labor (Checklisten)</h2>
 
         <div class="cardsGrid">
@@ -425,56 +352,41 @@
             <p class="subtle">Arbeite systematisch – nicht impulsiv. Dokumentiere jeden Schritt.</p>
 
             <div class="cardsGrid" style="margin-top:12px;">
-              <div class="miniCard">
-                <h4>1) Quelle</h4>
-                <p>Wer postet? Woher stammt das Material? Gibt es ein Original?</p>
-              </div>
-              <div class="miniCard">
-                <h4>2) Kontext</h4>
-                <p>Ort/Zeit/Objekte konsistent? Passt die Behauptung?</p>
-              </div>
-              <div class="miniCard">
-                <h4>3) Bild-/Video-Details</h4>
-                <p>Artefakte, Licht/Schatten, Text, Uniformen, Perspektive.</p>
-              </div>
-              <div class="miniCard">
-                <h4>4) Quervergleich</h4>
-                <p>Andere Quellen/Archive/Forschung – unabhängig prüfen.</p>
-              </div>
-              <div class="miniCard">
-                <h4>5) Fazit & Handlung</h4>
-                <p>Nicht teilen? Melden? Kontextualisieren? Dokumentieren?</p>
-              </div>
+              <div class="miniCard"><h4>1) Quelle</h4><p>Wer postet? Woher stammt das Material? Gibt es ein Original?</p></div>
+              <div class="miniCard"><h4>2) Kontext</h4><p>Ort/Zeit/Objekte konsistent? Passt die Behauptung?</p></div>
+              <div class="miniCard"><h4>3) Bild-/Video-Details</h4><p>Artefakte, Licht/Schatten, Text, Uniformen, Perspektive.</p></div>
+              <div class="miniCard"><h4>4) Quervergleich</h4><p>Andere Quellen/Archive/Forschung – unabhängig prüfen.</p></div>
+              <div class="miniCard"><h4>5) Fazit & Handlung</h4><p>Nicht teilen? Melden? Kontextualisieren? Dokumentieren?</p></div>
             </div>
           </div>
 
           <div class="card">
             <h3>Checkliste: Bildprüfung</h3>
             <div class="checklist">
-              <div class="check"><input type="checkbox" id="m4b1" /><label for="m4b1">Schrift/Schilder plausibel?</label></div>
-              <div class="check"><input type="checkbox" id="m4b2" /><label for="m4b2">Schatten/Licht konsistent?</label></div>
-              <div class="check"><input type="checkbox" id="m4b3" /><label for="m4b3">Texturen/Details natürlich?</label></div>
-              <div class="check"><input type="checkbox" id="m4b4" /><label for="m4b4">Perspektive/Proportionen stimmen?</label></div>
-              <div class="check"><input type="checkbox" id="m4b5" /><label for="m4b5">Kontext plausibel (Ort/Zeit)?</label></div>
+              <label class="check"><input type="checkbox" id="m4b1" /> <span>Schrift/Schilder plausibel?</span></label>
+              <label class="check"><input type="checkbox" id="m4b2" /> <span>Schatten/Licht konsistent?</span></label>
+              <label class="check"><input type="checkbox" id="m4b3" /> <span>Texturen/Details natürlich?</span></label>
+              <label class="check"><input type="checkbox" id="m4b4" /> <span>Perspektive/Proportionen stimmen?</span></label>
+              <label class="check"><input type="checkbox" id="m4b5" /> <span>Kontext plausibel (Ort/Zeit)?</span></label>
             </div>
           </div>
 
           <div class="card">
             <h3>Checkliste: Video-/Audio-Prüfung</h3>
             <div class="checklist">
-              <div class="check"><input type="checkbox" id="m4v1" /><label for="m4v1">Lippensynchronität, Mimik, Übergänge plausibel?</label></div>
-              <div class="check"><input type="checkbox" id="m4v2" /><label for="m4v2">Tonqualität, Artefakte, Schnitte erkennbar?</label></div>
-              <div class="check"><input type="checkbox" id="m4v3" /><label for="m4v3">Quelle/Upload-Historie nachvollziehbar?</label></div>
-              <div class="check"><input type="checkbox" id="m4v4" /><label for="m4v4">Kontext: Aussagen vs. belegbare Fakten?</label></div>
+              <label class="check"><input type="checkbox" id="m4v1" /> <span>Lippensynchronität, Mimik, Übergänge plausibel?</span></label>
+              <label class="check"><input type="checkbox" id="m4v2" /> <span>Tonqualität, Artefakte, Schnitte erkennbar?</span></label>
+              <label class="check"><input type="checkbox" id="m4v3" /> <span>Quelle/Upload-Historie nachvollziehbar?</span></label>
+              <label class="check"><input type="checkbox" id="m4v4" /> <span>Kontext: Aussagen vs. belegbare Fakten?</span></label>
             </div>
           </div>
         </div>
       </section>
 
       <!-- =========================================================
-           MODUL 5
+           MODUL 5: Plattformlogik, Meme-Kultur
       ========================================================== -->
-      <section class="section" id="m5">
+      <section class="section" id="modul-5">
         <h2>Modul 5: Plattformlogik, Meme-Kultur</h2>
 
         <div class="cardsGrid">
@@ -487,12 +399,12 @@
 
             <div class="inputRow">
               <div class="label">Arbeitsauftrag</div>
-              <textarea class="input" id="m5Task" placeholder="Erkläre, wie Plattformlogik zur Verbreitung beiträgt. Nenne 2 Gegenmassnahmen."></textarea>
+              <textarea class="input" id="m5_task" placeholder="Erkläre, wie Plattformlogik zur Verbreitung beiträgt. Nenne 2 Gegenmassnahmen."></textarea>
             </div>
 
             <div class="toolbar">
-              <button class="btn btn--primary" data-save="m5Task">Speichern</button>
-              <button class="btn btn--ghost" data-clear="m5Task">Löschen</button>
+              <button class="btn btn--primary" data-save="m5_task">Speichern</button>
+              <button class="btn btn--ghost" data-clear="m5_task">Löschen</button>
             </div>
           </div>
 
@@ -507,20 +419,21 @@
 
             <div class="inputRow">
               <div class="label">Beobachtung</div>
-              <textarea class="input" id="m5Notes" placeholder="Welche Meme-Mechanismen kennst du? Wie könnten sie hier missbraucht werden?"></textarea>
+              <textarea class="input" id="m5_notes" placeholder="Welche Meme-Mechanismen kennst du? Wie könnten sie hier missbraucht werden?"></textarea>
             </div>
+
             <div class="toolbar">
-              <button class="btn btn--primary" data-save="m5Notes">Speichern</button>
-              <button class="btn btn--ghost" data-clear="m5Notes">Löschen</button>
+              <button class="btn btn--primary" data-save="m5_notes">Speichern</button>
+              <button class="btn btn--ghost" data-clear="m5_notes">Löschen</button>
             </div>
           </div>
         </div>
       </section>
 
       <!-- =========================================================
-           MODUL 6
+           MODUL 6: Recht, Ethik, Verantwortung
       ========================================================== -->
-      <section class="section" id="m6">
+      <section class="section" id="modul-6">
         <h2>Modul 6: Recht, Ethik, Verantwortung</h2>
 
         <div class="cardsGrid">
@@ -533,12 +446,12 @@
 
             <div class="inputRow">
               <div class="label">Reflexion</div>
-              <textarea class="input" id="m6Task" placeholder="Welche ethischen Grenzen siehst du bei KI-generierten Bildern/Videos zur Shoah? Begründe."></textarea>
+              <textarea class="input" id="m6_task" placeholder="Welche ethischen Grenzen siehst du bei KI-generierten Bildern/Videos zur Shoah? Begründe."></textarea>
             </div>
 
             <div class="toolbar">
-              <button class="btn btn--primary" data-save="m6Task">Speichern</button>
-              <button class="btn btn--ghost" data-clear="m6Task">Löschen</button>
+              <button class="btn btn--primary" data-save="m6_task">Speichern</button>
+              <button class="btn btn--ghost" data-clear="m6_task">Löschen</button>
             </div>
           </div>
 
@@ -548,27 +461,14 @@
               (Unterrichtsorientierung – keine Rechtsberatung) Stichworte: Persönlichkeitsrechte, Urheberrecht, Plattformregeln, Strafnormen
               gegen Verleumdung/Volksverhetzung je nach Rechtsraum.
             </p>
-
-            <div class="accordion">
-              <div class="accordion__header" role="button" tabindex="0" aria-expanded="false">
-                <span><strong>Diskussion:</strong> Wer trägt Verantwortung?</span>
-                <span class="chev">▾</span>
-              </div>
-              <div class="accordion__body" hidden>
-                <p>
-                  Verantwortung verteilt sich: Creator – Plattform – Community – Bildungseinrichtungen. Entscheidend ist Transparenz und
-                  konsequentes Melden/Einordnen.
-                </p>
-              </div>
-            </div>
           </div>
         </div>
       </section>
 
       <!-- =========================================================
-           MODUL 7
+           MODUL 7: Handeln – Melden & Gegenstrategien
       ========================================================== -->
-      <section class="section" id="m7">
+      <section class="section" id="modul-7">
         <h2>Modul 7: Handeln – Melden & Gegenstrategien</h2>
 
         <div class="cardsGrid">
@@ -584,11 +484,12 @@
 
             <div class="inputRow">
               <div class="label">Arbeitsauftrag</div>
-              <textarea class="input" id="m7Task" placeholder="Formuliere einen verantwortungsvollen Reaktionsplan (5 Schritte), wenn du ein verdächtiges KI-Bild siehst."></textarea>
+              <textarea class="input" id="m7_task" placeholder="Formuliere einen verantwortungsvollen Reaktionsplan (5 Schritte), wenn du ein verdächtiges KI-Bild siehst."></textarea>
             </div>
+
             <div class="toolbar">
-              <button class="btn btn--primary" data-save="m7Task">Speichern</button>
-              <button class="btn btn--ghost" data-clear="m7Task">Löschen</button>
+              <button class="btn btn--primary" data-save="m7_task">Speichern</button>
+              <button class="btn btn--ghost" data-clear="m7_task">Löschen</button>
             </div>
           </div>
 
@@ -603,40 +504,39 @@
 
             <div class="inputRow">
               <div class="label">Eigener Entwurf</div>
-              <textarea class="input" id="m7Draft" placeholder="Schreibe eine kurze Gegenrede (respektvoll, klar, faktenorientiert)."></textarea>
+              <textarea class="input" id="m7_draft" placeholder="Schreibe eine kurze Gegenrede (respektvoll, klar, faktenorientiert)."></textarea>
             </div>
+
             <div class="toolbar">
-              <button class="btn btn--primary" data-save="m7Draft">Speichern</button>
-              <button class="btn btn--ghost" data-clear="m7Draft">Löschen</button>
+              <button class="btn btn--primary" data-save="m7_draft">Speichern</button>
+              <button class="btn btn--ghost" data-clear="m7_draft">Löschen</button>
             </div>
           </div>
         </div>
       </section>
 
       <!-- =========================================================
-           MODUL 8: PROJEKT + QUIZ + REFLEXION
+           MODUL 8: Projekt + Quiz + Reflexion
       ========================================================== -->
-      <section class="section" id="m8">
+      <section class="section" id="modul-8">
         <h2>Projekt (Modul 8) + Quiz + Reflexion</h2>
 
-        <div class="cardsGrid">
-          <div class="card card--wide">
-            <h3>Projektauftrag</h3>
-            <p>
-              Entwickle ein kurzes „Prüf- und Reaktionsprotokoll“ (1 Seite) für deine Schule/Klasse:
-              Wie erkennen wir KI-Fakes? Wie handeln wir verantwortungsvoll? Welche Quellen nutzen wir?
-            </p>
+        <div class="card card--wide">
+          <h3>Projektauftrag</h3>
+          <p>
+            Entwickle ein kurzes „Prüf- und Reaktionsprotokoll“ (1 Seite) für deine Schule/Klasse:
+            Wie erkennen wir KI-Fakes? Wie handeln wir verantwortungsvoll? Welche Quellen nutzen wir?
+          </p>
 
-            <div class="inputRow">
-              <div class="label">Projekt-Notizen</div>
-              <textarea class="input" id="projectNotes" placeholder="Stichworte, Struktur, Quellen, Checklisten..."></textarea>
-            </div>
+          <div class="inputRow">
+            <div class="label">Projekt-Notizen</div>
+            <textarea class="input" id="project_notes" placeholder="Stichworte, Struktur, Quellen, Checklisten..."></textarea>
+          </div>
 
-            <div class="toolbar">
-              <button class="btn btn--primary" data-save="projectNotes">Speichern</button>
-              <button class="btn btn--ghost" data-clear="projectNotes">Löschen</button>
-              <button class="btn btn--ghost" data-jump="#export">Zum Export</button>
-            </div>
+          <div class="toolbar">
+            <button class="btn btn--primary" data-save="project_notes">Speichern</button>
+            <button class="btn btn--ghost" data-clear="project_notes">Löschen</button>
+            <button class="btn btn--ghost" data-jump="quiz">Zum Quiz</button>
           </div>
         </div>
       </section>
@@ -649,12 +549,12 @@
 
         <div class="card card--wide">
           <p class="subtle">
-            Beantworte die Fragen. Du erhältst sofort Feedback. (1× falsch = Hinweis „falsch“, 2× falsch = Hinweis, 3× falsch = Lösung)
+            Beantworte die Fragen. Du erhältst sofort Feedback. (1× falsch = „falsch“, 2× falsch = Hinweis, 3× falsch = Lösung)
           </p>
 
           <div class="quiz" id="quizRoot"></div>
 
-          <div class="toolbar" style="margin-top:14px;">
+          <div class="toolbar" style="margin-top: 12px;">
             <button class="btn btn--primary" id="btnQuizEvaluate">Auswerten</button>
             <button class="btn btn--ghost" id="btnQuizReset">Quiz-Reset</button>
           </div>
@@ -671,9 +571,9 @@
           <div class="card">
             <h3>Material</h3>
             <ul class="linksList">
-              <li><a href="#" target="_blank" rel="noreferrer">Link 1</a></li>
-              <li><a href="#" target="_blank" rel="noreferrer">Link 2</a></li>
-              <li><a href="#" target="_blank" rel="noreferrer">Link 3</a></li>
+              <li><a href="https://www.youtube.com/watch?v=92Q5raXcur4" target="_blank" rel="noreferrer">Video 1 (YouTube)</a></li>
+              <li><a href="https://www.youtube.com/watch?v=uP14un_PFoQ" target="_blank" rel="noreferrer">Video 2 (YouTube)</a></li>
+              <li><a href="https://www.youtube.com/watch?v=fQl9Xm9xq9Y" target="_blank" rel="noreferrer">Video 3 (YouTube)</a></li>
             </ul>
           </div>
 
@@ -681,12 +581,12 @@
             <h3>Dokumentation der Prüfschritte</h3>
             <div class="inputRow">
               <div class="label">Log</div>
-              <textarea class="input" id="auditLog" placeholder="Dokumentiere: Quelle, Beobachtungen, Prüfschritte, Ergebnis, Handlung."></textarea>
+              <textarea class="input" id="audit_log" placeholder="Dokumentiere: Quelle, Beobachtungen, Prüfschritte, Ergebnis, Handlung."></textarea>
             </div>
 
             <div class="toolbar">
-              <button class="btn btn--primary" data-save="auditLog">Speichern</button>
-              <button class="btn btn--ghost" data-clear="auditLog">Löschen</button>
+              <button class="btn btn--primary" data-save="audit_log">Speichern</button>
+              <button class="btn btn--ghost" data-clear="audit_log">Löschen</button>
             </div>
           </div>
         </div>
@@ -724,14 +624,14 @@
       <!-- =========================================================
            FOOTER
       ========================================================== -->
-      <footer class="footer" style="margin-top:28px;">
+      <footer class="footer" style="margin-top: 28px;">
         <div class="card card--wide">
           <div class="footer__grid">
             <div>
               <strong>Hinweis:</strong> Diese Lernumgebung verzichtet bewusst auf grafische Gewaltbilder. Ziel ist Medienkompetenz & würdige Erinnerungskultur.
             </div>
             <div class="footer__right">
-              <button class="btn btn--ghost" data-jump="#start">Nach oben</button>
+              <button class="btn btn--ghost" data-jump="start">Nach oben</button>
               <button class="btn btn--ghost" id="btnOpenChangelog">Changelog</button>
             </div>
           </div>
@@ -742,7 +642,7 @@
   </div>
 
   <!-- =========================================================
-       MODAL (Teacher/Info)
+       MODAL
   ========================================================== -->
   <div class="modal" id="modal" hidden>
     <div class="modal__backdrop" data-close></div>
