@@ -1,819 +1,950 @@
-/* =========================================================
-   DATEI 3/3 — assets/js/app.js
-   ARBEITSMODUS-KONFORM:
-   - Kein Minimalismus: vollständige, robuste App-Logik
-   - Keine Vereinfachung: mehrere Engines (Quiz/Router/Progress/Storage/Export)
-   - Keine stillschweigenden Änderungen: alle “Änderungen/Features” als MARKER
-   - Keine Platzhalter: keine TODOs, keine Demo-Strings als Pflichtinhalt
-   - Keine ausgelassenen Teile: komplette Datei
-   - Bei Unsicherheit: defensiv & DOM-flexibel (funktioniert mit gängigen Strukturen)
-   ========================================================= */
-
-/* =========================
-   [ÄNDERUNG/MARKER 1]
-   Strikter Initialisierungs-Wrapper, damit nichts “hängt”
-   ========================= */
-(() => {
-  "use strict";
-
-  /* =========================
-     [ÄNDERUNG/MARKER 2]
-     Kleine Utility-Layer: DOM, Strings, Normalisierung, Events
-     ========================= */
-  const $ = (sel, root = document) => root.querySelector(sel);
-  const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
-
-  const on = (el, ev, fn, opts) => el && el.addEventListener(ev, fn, opts);
-
-  const clamp = (n, a, b) => Math.max(a, Math.min(b, n));
-  const nowISO = () => new Date().toISOString();
-
-  // Normalisierung für Synonymerkennung & “sanftes” Matching (de/fr/en tauglich)
-  const normalize = (s) => {
-    if (s == null) return "";
-    return String(s)
-      .trim()
-      .toLowerCase()
-      .normalize("NFKD")
-      .replace(/[\u0300-\u036f]/g, "") // diakritika raus
-      .replace(/[“”„"']/g, "")
-      .replace(/[–—-]/g, " ")
-      .replace(/[^\p{L}\p{N}\s]/gu, " ") // nur buchstaben/zahlen/space
-      .replace(/\s+/g, " ")
-      .trim();
-  };
-
-  // Entfernt “Füllwörter” NICHT aggressiv (kein Minimalismus), nur sehr vorsichtig
-  const softNormalize = (s) => {
-    const x = normalize(s);
-    // optional: sehr häufige Artikel entfernen, aber nur wenn mehrere Wörter
-    const parts = x.split(" ").filter(Boolean);
-    if (parts.length <= 1) return x;
-    const stop = new Set(["der", "die", "das", "ein", "eine", "einer", "einem", "einen", "und", "oder", "aber"]);
-    const filtered = parts.filter((p) => !stop.has(p));
-    return filtered.length ? filtered.join(" ") : x;
-  };
-
-  const splitSynonyms = (raw) => {
-    if (!raw) return [];
-    if (Array.isArray(raw)) return raw.map(String);
-    // Trennzeichen: | ; , oder Zeilenumbrüche
-    return String(raw)
-      .split(/\s*(\||;|,|\n)\s*/g)
-      .filter((t) => t && !["|", ";", ",", "\n"].includes(t))
-      .map((t) => t.trim())
-      .filter(Boolean);
-  };
-
-  // Token-ähnlicher Vergleich: erlaubt leichte Variationen (Reihenfolge egal)
-  const tokenSet = (s) => new Set(softNormalize(s).split(" ").filter(Boolean));
-  const jaccard = (a, b) => {
-    const A = tokenSet(a);
-    const B = tokenSet(b);
-    if (!A.size && !B.size) return 1;
-    if (!A.size || !B.size) return 0;
-    let inter = 0;
-    for (const t of A) if (B.has(t)) inter++;
-    const union = A.size + B.size - inter;
-    return union ? inter / union : 0;
-  };
-
-  const safeJsonParse = (s, fallback = null) => {
-    try {
-      return JSON.parse(s);
-    } catch {
-      return fallback;
-    }
-  };
-
-  /* =========================
-     [ÄNDERUNG/MARKER 3]
-     Zentrale Konfiguration + Storage Keys
-     ========================= */
-  const APP = {
-    version: "1.0.0",
-    storageKey: "lernlandschaft_progress_v1",
-    storageKeyMeta: "lernlandschaft_meta_v1",
-    maxAttempts: 3,
-    // Matching-Schwellen (robust statt “streng”)
-    jaccardAccept: 0.86,
-  };
-
-  /* =========================
-     [ÄNDERUNG/MARKER 4]
-     State + Persistenz (localStorage)
-     ========================= */
-  const defaultState = () => ({
-    updatedAt: nowISO(),
-    // pro Frage: { attempts, status: "open"|"correct", lastAnswer, history: [{t, a, ok}] }
-    questions: {},
-    // Navigation/Section-Status
-    ui: {
-      activeSectionId: null,
-      lastScrollY: 0,
-    },
-  });
-
-  const loadState = () => {
-    const raw = localStorage.getItem(APP.storageKey);
-    const parsed = safeJsonParse(raw, null);
-    if (!parsed || typeof parsed !== "object") return defaultState();
-    // defensive merge
-    const st = defaultState();
-    if (parsed.questions && typeof parsed.questions === "object") st.questions = parsed.questions;
-    if (parsed.ui && typeof parsed.ui === "object") st.ui = { ...st.ui, ...parsed.ui };
-    st.updatedAt = parsed.updatedAt || st.updatedAt;
-    return st;
-  };
-
-  const saveState = (st) => {
-    st.updatedAt = nowISO();
-    try {
-      localStorage.setItem(APP.storageKey, JSON.stringify(st));
-      localStorage.setItem(
-        APP.storageKeyMeta,
-        JSON.stringify({ version: APP.version, savedAt: st.updatedAt })
-      );
-    } catch (e) {
-      // Wenn Storage voll: trotzdem nicht crashen
-      console.warn("Speichern fehlgeschlagen:", e);
-    }
-  };
-
-  const clearState = () => {
-    localStorage.removeItem(APP.storageKey);
-    localStorage.removeItem(APP.storageKeyMeta);
-  };
-
-  const state = loadState();
-
-  /* =========================
-     [ÄNDERUNG/MARKER 5]
-     DOM-Konventionen (flexibel):
-     - Sections: <section data-section="intro|modul1|..."> oder id="..."
-     - Quiz-Items:
-         .qa-item oder [data-qa]
-         Antwortfeld: input[type=text], textarea, oder [contenteditable]
-         Musterlösung/Antwort: data-answer ODER <script type="application/json" class="qa-data">...</script>
-         Synonyme: data-synonyms (| ; , getrennt) oder im JSON
-         Hinweis: data-hint oder im JSON
-       Buttons:
-         .btn-check (prüfen), .btn-reset (reset), .btn-show-solution (lösung)
-         Optional global: #resetAll, #exportProgress, #importProgress
-     ========================= */
-
-  /* =========================
-     [ÄNDERUNG/MARKER 6]
-     Router/Navi: Sections + Deep-Link via #hash
-     ========================= */
-  const getAllSections = () => {
-    const byData = $$("section[data-section]");
-    if (byData.length) return byData;
-    // fallback: “module-like” sections (optional)
-    const byId = $$("section[id]");
-    return byId;
-  };
-
-  const getSectionId = (sec) => sec?.dataset?.section || sec?.id || null;
-
-  const activateSection = (id, { scroll = true, pushHash = true } = {}) => {
-    const sections = getAllSections();
-    if (!sections.length) return;
-
-    let target = null;
-    for (const s of sections) {
-      const sid = getSectionId(s);
-      const isTarget = sid && sid === id;
-      s.classList.toggle("is-active", !!isTarget);
-      if (isTarget) target = s;
-    }
-
-    if (!target) {
-      // fallback: erste section
-      target = sections[0];
-      target.classList.add("is-active");
-      id = getSectionId(target);
-    }
-
-    state.ui.activeSectionId = id;
-    saveState(state);
-
-    if (pushHash && id) {
-      // keine Endlosschleife: nur setzen wenn anders
-      const newHash = `#${encodeURIComponent(id)}`;
-      if (location.hash !== newHash) history.replaceState(null, "", newHash);
-    }
-
-    if (scroll && target) {
-      target.scrollIntoView({ behavior: "smooth", block: "start" });
-    }
-
-    updateNavActive(id);
-  };
-
-  const updateNavActive = (activeId) => {
-    // Unterstützt Links: a[href="#id"] oder [data-nav="id"]
-    const navLinks = $$('a[href^="#"], [data-nav]');
-    navLinks.forEach((a) => {
-      const href = a.getAttribute("href");
-      const nav = a.dataset?.nav;
-      const id = nav || (href ? decodeURIComponent(href.slice(1)) : null);
-      if (!id) return;
-      a.classList.toggle("active", id === activeId);
-      a.setAttribute("aria-current", id === activeId ? "page" : "false");
-    });
-  };
-
-  const initRouter = () => {
-    const sections = getAllSections();
-    if (!sections.length) return;
-
-    // Klicks auf Navi abfangen
-    on(document, "click", (e) => {
-      const a = e.target.closest('a[href^="#"], [data-nav]');
-      if (!a) return;
-      const href = a.getAttribute("href");
-      const nav = a.dataset?.nav;
-      const id = nav || (href ? decodeURIComponent(href.slice(1)) : null);
-      if (!id) return;
-      e.preventDefault();
-      activateSection(id, { scroll: true, pushHash: true });
-    });
-
-    // Hash beim Laden
-    const initial = (() => {
-      const h = location.hash ? decodeURIComponent(location.hash.slice(1)) : null;
-      return h || state.ui.activeSectionId || getSectionId(sections[0]);
-    })();
-
-    activateSection(initial, { scroll: false, pushHash: true });
-
-    // Hashchange (z.B. Back-Button)
-    on(window, "hashchange", () => {
-      const h = location.hash ? decodeURIComponent(location.hash.slice(1)) : null;
-      if (h) activateSection(h, { scroll: true, pushHash: false });
-    });
-  };
-
-  /* =========================
-     [ÄNDERUNG/MARKER 7]
-     Quiz-Engine: Items einsammeln + logische Daten
-     ========================= */
-  const parseQaJson = (root) => {
-    const script = $(".qa-data", root);
-    if (!script) return null;
-    const txt = script.textContent?.trim();
-    if (!txt) return null;
-    return safeJsonParse(txt, null);
-  };
-
-  const getQaId = (root, index) => {
-    // Priorität: data-qa-id > id > data-qa > fallback
-    return (
-      root.dataset.qaId ||
-      root.id ||
-      root.dataset.qa ||
-      `qa_${index + 1}`
-    );
-  };
-
-  const getAnswerField = (root) => {
-    // Priorität: input/textarea, dann contenteditable
-    const field = $("input[type='text'], input:not([type]), textarea", root);
-    if (field) return field;
-    const ce = $("[contenteditable='true']", root);
-    return ce || null;
-  };
-
-  const getFeedbackBox = (root) => {
-    // Unterstützt mehrere Varianten
-    return (
-      $(".qa-feedback", root) ||
-      $(".feedback", root) ||
-      root.querySelector("[data-feedback]") ||
-      null
-    );
-  };
-
-  const collectQuizItems = () => {
-    const items = $$(".qa-item, [data-qa]");
-    return items.map((root, idx) => {
-      const qaJson = parseQaJson(root) || {};
-      const id = getQaId(root, idx);
-
-      const answer = root.dataset.answer || qaJson.answer || qaJson.solution || "";
-      const synonymsRaw = root.dataset.synonyms || qaJson.synonyms || qaJson.accept || [];
-      const hint = root.dataset.hint || qaJson.hint || "";
-      const solutionText = root.dataset.solutionText || qaJson.solutionText || qaJson.model || "";
-
-      // Optional: multiple acceptable answers as array
-      const acceptable = (() => {
-        const base = [];
-        if (Array.isArray(answer)) base.push(...answer);
-        else if (typeof answer === "string" && answer.trim()) base.push(answer.trim());
-        base.push(...splitSynonyms(synonymsRaw));
-        // dedupe (normalized)
-        const seen = new Set();
-        const out = [];
-        for (const a of base) {
-          const n = softNormalize(a);
-          if (!n) continue;
-          if (seen.has(n)) continue;
-          seen.add(n);
-          out.push(a);
-        }
-        return out;
-      })();
-
-      return {
-        root,
-        id,
-        idx,
-        field: getAnswerField(root),
-        feedback: getFeedbackBox(root),
-        data: {
-          acceptable,
-          hint,
-          solutionText,
-        },
-      };
-    });
-  };
-
-  const quizItems = collectQuizItems();
-
-  /* =========================
-     [ÄNDERUNG/MARKER 8]
-     Matching-Logik: exakt / normalisiert / token-jaccard
-     ========================= */
-  const isCorrect = (userAnswer, acceptableList) => {
-    const ua = softNormalize(userAnswer);
-    if (!ua) return { ok: false, mode: "empty" };
-
-    // 1) Exakt-normalisiert match
-    for (const acc of acceptableList) {
-      if (ua === softNormalize(acc)) return { ok: true, mode: "exact" };
-    }
-
-    // 2) Enthält/Teilmatch (nur wenn sehr ähnlich, nicht “zu locker”)
-    for (const acc of acceptableList) {
-      const an = softNormalize(acc);
-      if (!an) continue;
-      if (ua.length >= 6 && an.length >= 6) {
-        if (ua.includes(an) || an.includes(ua)) {
-          // schützt vor “zu kurzen” Zufalls-Treffern
-          const score = jaccard(ua, an);
-          if (score >= APP.jaccardAccept) return { ok: true, mode: "contain" };
-        }
-      }
-    }
-
-    // 3) Token-Set Similarity
-    let best = 0;
-    for (const acc of acceptableList) {
-      const score = jaccard(ua, acc);
-      if (score > best) best = score;
-    }
-    if (best >= APP.jaccardAccept) return { ok: true, mode: "token" };
-
-    return { ok: false, mode: "nope" };
-  };
-
-  /* =========================
-     [ÄNDERUNG/MARKER 9]
-     UI-Feedback: falsch/hinweis/lösung nach 1/2/3 Versuch
-     ========================= */
-  const ensureQuestionState = (qid) => {
-    if (!state.questions[qid]) {
-      state.questions[qid] = {
-        attempts: 0,
-        status: "open",
-        lastAnswer: "",
-        history: [],
-      };
-    }
-    return state.questions[qid];
-  };
-
-  const setFeedback = (item, html, type = "info") => {
-    const box = item.feedback;
-    if (!box) return;
-    box.innerHTML = html;
-    box.classList.remove("ok", "bad", "hint", "solution", "info");
-    box.classList.add(type);
-    box.setAttribute("role", type === "bad" ? "alert" : "status");
-    box.setAttribute("aria-live", "polite");
-  };
-
-  const lockFieldIfCorrect = (item, correct) => {
-    const f = item.field;
-    if (!f) return;
-    if (f.hasAttribute("contenteditable")) {
-      f.setAttribute("contenteditable", correct ? "false" : "true");
-      f.classList.toggle("is-locked", correct);
-      return;
-    }
-    f.disabled = !!correct;
-    f.classList.toggle("is-locked", !!correct);
-  };
-
-  const updateItemUIFromState = (item) => {
-    const qs = ensureQuestionState(item.id);
-    const isDone = qs.status === "correct";
-
-    // Feld füllen (falls im DOM leer) – aber NICHT überschreiben, wenn Nutzer tippt
-    if (item.field) {
-      const current = item.field.hasAttribute("contenteditable")
-        ? item.field.textContent
-        : item.field.value;
-
-      if (!current && qs.lastAnswer) {
-        if (item.field.hasAttribute("contenteditable")) item.field.textContent = qs.lastAnswer;
-        else item.field.value = qs.lastAnswer;
-      }
-    }
-
-    lockFieldIfCorrect(item, isDone);
-
-    // Feedback wiederherstellen: nur wenn vorhanden
-    if (item.feedback) {
-      if (isDone) {
-        setFeedback(item, "✅ <strong>Richtig.</strong>", "ok");
-      } else if (qs.attempts === 1) {
-        setFeedback(item, "❌ <strong>Falsch.</strong> Versuche es noch einmal.", "bad");
-      } else if (qs.attempts === 2) {
-        const hint = item.data.hint ? `💡 <strong>Hinweis:</strong> ${escapeHtml(item.data.hint)}` : "💡 <strong>Hinweis:</strong> Achte auf zentrale Begriffe aus dem Material.";
-        setFeedback(item, `❌ <strong>Falsch.</strong><br>${hint}`, "hint");
-      } else if (qs.attempts >= 3) {
-        // Wenn es keine “solutionText” gibt, zeigen wir dennoch die akzeptablen Antworten an
-        const sol = item.data.solutionText?.trim()
-          ? escapeHtml(item.data.solutionText.trim())
-          : formatAcceptable(item.data.acceptable);
-        setFeedback(item, `🧩 <strong>Musterlösung:</strong> ${sol}`, "solution");
-      } else {
-        // attempts 0: leer lassen
-        setFeedback(item, "", "info");
-      }
-    }
-  };
-
-  const formatAcceptable = (accList) => {
-    const clean = (accList || []).map((x) => String(x).trim()).filter(Boolean);
-    if (!clean.length) return "(keine Musterlösung hinterlegt)";
-    if (clean.length === 1) return `<span>${escapeHtml(clean[0])}</span>`;
-    return `<ul>${clean.map((a) => `<li>${escapeHtml(a)}</li>`).join("")}</ul>`;
-  };
-
-  const escapeHtml = (s) =>
-    String(s)
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;")
-      .replace(/"/g, "&quot;");
-
-  /* =========================
-     [ÄNDERUNG/MARKER 10]
-     Prüfen-Handler pro Item + globale Delegation
-     ========================= */
-  const readFieldValue = (field) => {
-    if (!field) return "";
-    if (field.hasAttribute("contenteditable")) return field.textContent || "";
-    return field.value || "";
-  };
-
-  const writeFieldValue = (field, val) => {
-    if (!field) return;
-    if (field.hasAttribute("contenteditable")) {
-      field.textContent = val ?? "";
-      return;
-    }
-    field.value = val ?? "";
-  };
-
-  const handleCheck = (item) => {
-    const qs = ensureQuestionState(item.id);
-    if (qs.status === "correct") {
-      setFeedback(item, "✅ <strong>Richtig.</strong> (bereits gelöst)", "ok");
-      updateProgressUI();
-      return;
-    }
-
-    const userAnswer = readFieldValue(item.field);
-    qs.lastAnswer = userAnswer;
-
-    const result = isCorrect(userAnswer, item.data.acceptable);
-
-    qs.attempts = clamp(qs.attempts + 1, 0, APP.maxAttempts);
-    qs.history.push({ t: nowISO(), a: userAnswer, ok: !!result.ok, mode: result.mode });
-
-    if (result.ok) {
-      qs.status = "correct";
-      setFeedback(item, "✅ <strong>Richtig.</strong>", "ok");
-      lockFieldIfCorrect(item, true);
-    } else {
-      if (qs.attempts === 1) {
-        setFeedback(item, "❌ <strong>Falsch.</strong> Versuche es noch einmal.", "bad");
-      } else if (qs.attempts === 2) {
-        const hint = item.data.hint
-          ? `💡 <strong>Hinweis:</strong> ${escapeHtml(item.data.hint)}`
-          : "💡 <strong>Hinweis:</strong> Schau nochmals in die Textstelle/Quelle und arbeite mit Schlüsselbegriffen.";
-        setFeedback(item, `❌ <strong>Falsch.</strong><br>${hint}`, "hint");
-      } else {
-        const sol = item.data.solutionText?.trim()
-          ? escapeHtml(item.data.solutionText.trim())
-          : formatAcceptable(item.data.acceptable);
-        setFeedback(item, `🧩 <strong>Musterlösung:</strong> ${sol}`, "solution");
-      }
-    }
-
-    saveState(state);
-    updateProgressUI();
-  };
-
-  const handleResetItem = (item) => {
-    const qs = ensureQuestionState(item.id);
-    qs.attempts = 0;
-    qs.status = "open";
-    qs.lastAnswer = "";
-    qs.history = [];
-    writeFieldValue(item.field, "");
-    lockFieldIfCorrect(item, false);
-    setFeedback(item, "", "info");
-    saveState(state);
-    updateProgressUI();
-  };
-
-  const handleShowSolution = (item) => {
-    const qs = ensureQuestionState(item.id);
-    qs.attempts = Math.max(qs.attempts, APP.maxAttempts);
-    const sol = item.data.solutionText?.trim()
-      ? escapeHtml(item.data.solutionText.trim())
-      : formatAcceptable(item.data.acceptable);
-    setFeedback(item, `🧩 <strong>Musterlösung:</strong> ${sol}`, "solution");
-    saveState(state);
-    updateProgressUI();
-  };
-
-  const initQuiz = () => {
-    // Initial UI state aus localStorage wiederherstellen
-    quizItems.forEach(updateItemUIFromState);
-    updateProgressUI();
-
-    // Event Delegation: Buttons innerhalb eines Items
-    on(document, "click", (e) => {
-      const btn = e.target.closest("button, .btn");
-      if (!btn) return;
-
-      const itemRoot = btn.closest(".qa-item, [data-qa]");
-      if (!itemRoot) return;
-
-      const item = quizItems.find((x) => x.root === itemRoot);
-      if (!item) return;
-
-      // Klassen / data-action / button type unterstützen
-      const action =
-        btn.dataset.action ||
-        (btn.classList.contains("btn-check") ? "check" : null) ||
-        (btn.classList.contains("btn-reset") ? "reset" : null) ||
-        (btn.classList.contains("btn-show-solution") ? "solution" : null);
-
-      if (!action) return;
-
-      e.preventDefault();
-      if (action === "check") handleCheck(item);
-      else if (action === "reset") handleResetItem(item);
-      else if (action === "solution") handleShowSolution(item);
-    });
-
-    // Enter = check (bei input) pro Item
-    on(document, "keydown", (e) => {
-      const t = e.target;
-      if (!t) return;
-      if (e.key !== "Enter") return;
-
-      // Nur in input/textarea/contenteditable, nicht in Buttons
-      const isTextInput =
-        t.matches?.("input[type='text'], input:not([type])") ||
-        t.matches?.("textarea") ||
-        t.getAttribute?.("contenteditable") === "true";
-
-      if (!isTextInput) return;
-
-      // in textarea: Enter zulassen (kein Submit), ausser ctrl/cmd+enter
-      if (t.matches?.("textarea") && !(e.ctrlKey || e.metaKey)) return;
-
-      const itemRoot = t.closest(".qa-item, [data-qa]");
-      if (!itemRoot) return;
-      const item = quizItems.find((x) => x.root === itemRoot);
-      if (!item) return;
-
-      e.preventDefault();
-      handleCheck(item);
-    });
-  };
-
-  /* =========================
-     [ÄNDERUNG/MARKER 11]
-     Fortschrittsanzeige: (gelöst/gesamt) + Progressbar + optionaler Download-Button
-     ========================= */
-  const getProgress = () => {
-    const total = quizItems.length;
-    let solved = 0;
-    for (const it of quizItems) {
-      const qs = ensureQuestionState(it.id);
-      if (qs.status === "correct") solved++;
-    }
-    return { solved, total, pct: total ? Math.round((solved / total) * 100) : 0 };
-  };
-
-  const updateProgressUI = () => {
-    const { solved, total, pct } = getProgress();
-
-    // Unterstützte Targets: .progress-text, #progressText
-    const textEl = $(".progress-text") || $("#progressText");
-    if (textEl) textEl.textContent = `${solved}/${total}`;
-
-    // Fortschrittsbalken: <progress> oder .progress-bar [data-progress]
-    const progressEl = $("progress#progressBar") || $("progress.progress-bar");
-    if (progressEl) {
-      progressEl.max = total || 1;
-      progressEl.value = solved;
-      progressEl.setAttribute("aria-label", `Fortschritt: ${pct}%`);
-    }
-
-    const bar = $(".progress-fill, [data-progress-fill]");
-    if (bar) {
-      bar.style.width = `${pct}%`;
-      bar.setAttribute("aria-valuenow", String(pct));
-      bar.setAttribute("aria-valuemin", "0");
-      bar.setAttribute("aria-valuemax", "100");
-    }
-
-    const pctEl = $(".progress-percent") || $("#progressPercent");
-    if (pctEl) pctEl.textContent = `${pct}%`;
-
-    // Optional: “Download/Export freischalten wenn alles gelöst”
-    const dl = $("#downloadBtn, .download-btn, [data-download]");
-    if (dl) {
-      const enable = total > 0 && solved === total;
-      dl.classList.toggle("is-enabled", enable);
-      dl.setAttribute("aria-disabled", enable ? "false" : "true");
-      if (dl.tagName === "BUTTON") dl.disabled = !enable;
-    }
-  };
-
-  /* =========================
-     [ÄNDERUNG/MARKER 12]
-     Global Reset + Export/Import (für Abgabe/Backup)
-     ========================= */
-  const exportProgress = () => {
-    const payload = {
-      meta: { appVersion: APP.version, exportedAt: nowISO() },
-      state,
-    };
-    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = `progress_export_${new Date().toISOString().slice(0, 10)}.json`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
-  };
-
-  const importProgressFromFile = (file) => {
-    return new Promise((resolve, reject) => {
-      const r = new FileReader();
-      r.onerror = () => reject(new Error("Datei konnte nicht gelesen werden."));
-      r.onload = () => {
-        const parsed = safeJsonParse(String(r.result || ""), null);
-        if (!parsed || !parsed.state) return reject(new Error("Ungültiges Export-Format."));
-        // Übernehmen, defensiv
-        const st = defaultState();
-        if (parsed.state.questions) st.questions = parsed.state.questions;
-        if (parsed.state.ui) st.ui = { ...st.ui, ...parsed.state.ui };
-        st.updatedAt = nowISO();
-        // in global state kopieren
-        state.questions = st.questions;
-        state.ui = st.ui;
-        saveState(state);
-        // UI refresh
-        quizItems.forEach(updateItemUIFromState);
-        updateProgressUI();
-        resolve(true);
-      };
-      r.readAsText(file);
-    });
-  };
-
-  const initGlobalControls = () => {
-    // Reset all
-    const resetAll = $("#resetAll, .reset-all, [data-reset-all]");
-    if (resetAll) {
-      on(resetAll, "click", (e) => {
-        e.preventDefault();
-        // Keine “Confirm-Pflicht”, aber sicher: wenn Element data-confirm nutzt, dann confirm
-        const wantsConfirm = resetAll.dataset.confirm === "true";
-        if (wantsConfirm) {
-          const ok = confirm("Wirklich alles zurücksetzen? (Fortschritt wird gelöscht)");
-          if (!ok) return;
-        }
-        clearState();
-        // state neu laden
-        const fresh = defaultState();
-        state.questions = fresh.questions;
-        state.ui = fresh.ui;
-        saveState(state);
-        // UI
-        quizItems.forEach(handleResetItem);
-        updateProgressUI();
-      });
-    }
-
-    // Export
-    const exportBtn = $("#exportProgress, .export-progress, [data-export]");
-    if (exportBtn) {
-      on(exportBtn, "click", (e) => {
-        e.preventDefault();
-        exportProgress();
-      });
-    }
-
-    // Import
-    const importInput = $("#importProgressInput");
-    const importBtn = $("#importProgress, .import-progress, [data-import]");
-    if (importBtn) {
-      on(importBtn, "click", (e) => {
-        e.preventDefault();
-        if (importInput) importInput.click();
-        else {
-          // Fallback: unsichtbares Input erzeugen
-          const tmp = document.createElement("input");
-          tmp.type = "file";
-          tmp.accept = "application/json";
-          tmp.style.display = "none";
-          document.body.appendChild(tmp);
-          tmp.addEventListener("change", async () => {
-            const file = tmp.files && tmp.files[0];
-            if (!file) return;
-            try {
-              await importProgressFromFile(file);
-            } catch (err) {
-              alert(String(err?.message || err));
-            } finally {
-              tmp.remove();
-            }
-          });
-          tmp.click();
-        }
-      });
-    }
-    if (importInput) {
-      on(importInput, "change", async () => {
-        const file = importInput.files && importInput.files[0];
-        if (!file) return;
-        try {
-          await importProgressFromFile(file);
-        } catch (err) {
-          alert(String(err?.message || err));
-        } finally {
-          importInput.value = "";
-        }
-      });
-    }
-  };
-
-  /* =========================
-     [ÄNDERUNG/MARKER 13]
-     “Sanity Checks” fürs DOM: fehlende Antworten/IDs markieren (nur Konsole)
-     ========================= */
-  const sanityCheck = () => {
-    if (!quizItems.length) {
-      console.warn("Keine Quiz-Items gefunden (.qa-item oder [data-qa]).");
-      return;
-    }
-    for (const it of quizItems) {
-      if (!it.field) console.warn(`Quiz-Item "${it.id}": kein Eingabefeld gefunden (input/textarea/contenteditable).`);
-      if (!it.data.acceptable || it.data.acceptable.length === 0) {
-        console.warn(`Quiz-Item "${it.id}": keine akzeptierte Antwort hinterlegt (data-answer / qa-data JSON).`);
-      }
-    }
-  };
-
-  /* =========================
-     [ÄNDERUNG/MARKER 14]
-     Initialisierung (DOMContentLoaded)
-     ========================= */
-  const init = () => {
-    initRouter();
-    initQuiz();
-    initGlobalControls();
-    sanityCheck();
-  };
-
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", init, { once: true });
-  } else {
-    init();
+```css
+/* [ÄNDERUNG/MARKER 1] RESET + BASELINE (mobile-first, robust) */
+*, *::before, *::after { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+body { margin: 0; }
+img, picture, video, canvas, svg { display: block; max-width: 100%; }
+input, button, textarea, select { font: inherit; color: inherit; }
+a { color: inherit; text-decoration: none; }
+button { cursor: pointer; }
+:where(button, [type="button"], [type="submit"], [role="button"]) { -webkit-tap-highlight-color: transparent; }
+:where(ul, ol) { padding: 0; margin: 0; list-style: none; }
+:where(p, h1, h2, h3, h4, h5, h6) { margin: 0; }
+:where(hr) { border: 0; border-top: 1px solid rgba(255,255,255,.08); margin: 16px 0; }
+:where(:focus) { outline: none; }
+
+/* [ÄNDERUNG/MARKER 2] DESIGN TOKENS (CSS-Variablen) */
+:root{
+  /* Typography */
+  --font-sans: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji";
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+
+  --text-xs: 0.8125rem; /* 13px */
+  --text-sm: 0.9375rem; /* 15px */
+  --text-md: 1rem;      /* 16px */
+  --text-lg: 1.125rem;  /* 18px */
+  --text-xl: 1.375rem;  /* 22px */
+  --text-2xl: 1.75rem;  /* 28px */
+  --text-3xl: 2.125rem; /* 34px */
+
+  --lh-tight: 1.15;
+  --lh-base: 1.55;
+
+  /* Spacing */
+  --space-1: 6px;
+  --space-2: 10px;
+  --space-3: 14px;
+  --space-4: 18px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 40px;
+
+  /* Radius */
+  --r-xs: 10px;
+  --r-sm: 14px;
+  --r-md: 18px;
+  --r-lg: 22px;
+  --r-xl: 28px;
+
+  /* Shadows / Glow */
+  --shadow-1: 0 10px 30px rgba(0,0,0,.35);
+  --shadow-2: 0 18px 50px rgba(0,0,0,.45);
+  --glow-soft: 0 0 0 1px rgba(255,255,255,.06), 0 0 40px rgba(118,106,255,.08);
+
+  /* Colors */
+  --bg-0: #070712;         /* deepest */
+  --bg-1: #0b0b19;         /* app base */
+  --bg-2: #0f1023;         /* panels */
+  --bg-3: rgba(255,255,255,.06); /* subtle */
+  --fg-0: rgba(255,255,255,.92);
+  --fg-1: rgba(255,255,255,.80);
+  --fg-2: rgba(255,255,255,.62);
+  --fg-3: rgba(255,255,255,.42);
+
+  --border-0: rgba(255,255,255,.10);
+  --border-1: rgba(255,255,255,.14);
+  --border-2: rgba(118,106,255,.25);
+
+  --brand: #7a6cff;
+  --brand-2: #59d2ff;
+  --brand-3: #a78bfa;
+
+  --ok: #31d58c;
+  --bad: #ff4d6d;
+  --hint: #f7c948;
+  --solution: #5bd0ff;
+  --info: #a78bfa;
+
+  --warn: #ffb020;
+
+  /* Surfaces */
+  --card-bg: rgba(16, 18, 42, .66);
+  --card-bg-strong: rgba(16, 18, 42, .78);
+  --card-border: rgba(255,255,255,.10);
+  --card-border-soft: rgba(255,255,255,.08);
+
+  /* Backdrop / overlay settings */
+  --backdrop-blur: 14px;
+  --backdrop-sat: 140%;
+
+  /* Background GIF intensity (tune these if needed) */
+  --gif-opacity: .12; /* low visibility “transparent” effect */
+  --gif-contrast: 110%;
+  --gif-saturate: 90%;
+  --gif-brightness: 85%;
+  --gif-blur: 0px;
+
+  /* Layout */
+  --sidebar-w: 300px;
+  --topbar-h: 64px;
+
+  /* Focus */
+  --focus: 0 0 0 3px rgba(122,108,255,.32), 0 0 0 1px rgba(255,255,255,.22);
+
+  /* Transitions */
+  --t-fast: 120ms;
+  --t-med: 180ms;
+  --t-slow: 260ms;
+  --ease: cubic-bezier(.2,.8,.2,1);
+}
+
+/* [ÄNDERUNG/MARKER 3] BODY + GLOBAL BACKGROUND (GIF + overlay layers, readable) */
+html, body { height: 100%; }
+body{
+  font-family: var(--font-sans);
+  font-size: var(--text-md);
+  line-height: var(--lh-base);
+  color: var(--fg-0);
+  background: var(--bg-1);
+  overflow-x: hidden;
+  position: relative;
+}
+
+/* Layer stack:
+   1) base gradient
+   2) GIF (very low opacity via pseudo element)
+   3) readability overlay (dark glass)
+*/
+body::before{
+  content:"";
+  position: fixed;
+  inset: 0;
+  z-index: -3;
+  background:
+    radial-gradient(1200px 800px at 15% 10%, rgba(122,108,255,.18), transparent 60%),
+    radial-gradient(900px 700px at 90% 20%, rgba(89,210,255,.12), transparent 55%),
+    radial-gradient(1000px 900px at 50% 90%, rgba(167,139,250,.10), transparent 60%),
+    linear-gradient(180deg, var(--bg-0), var(--bg-1));
+}
+
+body::after{
+  /* this ::after is reserved as the GIF layer; overlay is on .layout via its own pseudo */
+  content:"";
+  position: fixed;
+  inset: -2px;
+  z-index: -2;
+  background-image: url("../img/Fakebilder_Shoah.gif");
+  background-repeat: no-repeat;
+  background-size: cover;
+  background-position: center center;
+  opacity: var(--gif-opacity);
+  filter: contrast(var(--gif-contrast)) saturate(var(--gif-saturate)) brightness(var(--gif-brightness)) blur(var(--gif-blur));
+  transform: translateZ(0);
+  will-change: opacity;
+  pointer-events: none;
+}
+
+/* [ÄNDERUNG/MARKER 4] PREFERS-REDUCED-MOTION (ruhiger Hintergrund + weniger Transition) */
+@media (prefers-reduced-motion: reduce){
+  :root{
+    --t-fast: 0ms;
+    --t-med: 0ms;
+    --t-slow: 0ms;
+    --gif-opacity: .08;
+    --gif-blur: 1px;
+    --gif-brightness: 78%;
+    --gif-saturate: 75%;
   }
-})();
+  *{
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+  body::after{
+    /* Keep visually calm: “fix” attachment & reduce motion impact.
+       Note: GIF still animates, but appears subdued & stable. */
+    background-attachment: fixed;
+  }
+}
+
+/* [ÄNDERUNG/MARKER 5] ACCESSIBILITY: focus-visible, selection, reduced hover reliance */
+::selection{ background: rgba(122,108,255,.35); color: var(--fg-0); }
+:where(a, button, input, textarea, select, summary, .nav__item, .btn, .icon-btn):focus-visible{
+  outline: none;
+  box-shadow: var(--focus);
+  border-radius: var(--r-sm);
+}
+:where(a):focus-visible{ border-radius: 10px; }
+
+/* [ÄNDERUNG/MARKER 6] LAYOUT (Topbar + Sidebar + Main) */
+.layout{
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: 1fr;
+  grid-template-rows: var(--topbar-h) 1fr;
+  gap: var(--space-4);
+  padding: var(--space-4);
+  position: relative;
+}
+
+/* readability overlay lives on layout so cards stay crisp */
+.layout::before{
+  content:"";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background:
+    linear-gradient(180deg, rgba(7,7,18,.82), rgba(7,7,18,.68) 35%, rgba(7,7,18,.80));
+  pointer-events: none;
+}
+
+.topbar{
+  grid-column: 1 / -1;
+  grid-row: 1;
+  height: var(--topbar-h);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: 0 var(--space-4);
+  border-radius: var(--r-lg);
+  background: rgba(15, 16, 35, .68);
+  border: 1px solid var(--border-0);
+  box-shadow: var(--glow-soft), var(--shadow-1);
+  backdrop-filter: blur(var(--backdrop-blur)) saturate(var(--backdrop-sat));
+  -webkit-backdrop-filter: blur(var(--backdrop-blur)) saturate(var(--backdrop-sat));
+}
+
+.sidebar{
+  grid-row: 2;
+  border-radius: var(--r-lg);
+  background: rgba(15, 16, 35, .60);
+  border: 1px solid var(--border-0);
+  box-shadow: var(--glow-soft), var(--shadow-1);
+  backdrop-filter: blur(var(--backdrop-blur)) saturate(var(--backdrop-sat));
+  -webkit-backdrop-filter: blur(var(--backdrop-blur)) saturate(var(--backdrop-sat));
+  padding: var(--space-4);
+  position: relative;
+}
+
+.main{
+  grid-row: 2;
+  border-radius: var(--r-lg);
+  background: rgba(15, 16, 35, .45);
+  border: 1px solid rgba(255,255,255,.08);
+  box-shadow: var(--shadow-1);
+  backdrop-filter: blur(calc(var(--backdrop-blur) - 4px)) saturate(120%);
+  -webkit-backdrop-filter: blur(calc(var(--backdrop-blur) - 4px)) saturate(120%);
+  padding: var(--space-4);
+  min-width: 0;
+}
+
+/* desktop layout */
+@media (min-width: 980px){
+  .layout{
+    grid-template-columns: var(--sidebar-w) 1fr;
+    grid-template-rows: var(--topbar-h) 1fr;
+    align-items: start;
+  }
+  .sidebar{
+    grid-column: 1;
+    grid-row: 2;
+    position: sticky;
+    top: calc(var(--space-4) + var(--topbar-h));
+    max-height: calc(100vh - (var(--space-4) * 3) - var(--topbar-h));
+    overflow: auto;
+  }
+  .main{
+    grid-column: 2;
+    grid-row: 2;
+  }
+}
+
+/* [ÄNDERUNG/MARKER 7] TYPOGRAPHY HELPERS (headings, small text) */
+.hero{
+  padding: var(--space-4);
+  border-radius: var(--r-lg);
+  background: linear-gradient(135deg, rgba(122,108,255,.14), rgba(89,210,255,.08) 55%, rgba(167,139,250,.08));
+  border: 1px solid rgba(122,108,255,.22);
+  box-shadow: var(--glow-soft);
+  backdrop-filter: blur(calc(var(--backdrop-blur) - 4px)) saturate(130%);
+  -webkit-backdrop-filter: blur(calc(var(--backdrop-blur) - 4px)) saturate(130%);
+  margin-bottom: var(--space-4);
+}
+
+.hero h1, .hero .title{
+  font-size: clamp(var(--text-xl), 2.6vw, var(--text-3xl));
+  line-height: var(--lh-tight);
+  letter-spacing: -0.02em;
+}
+.hero p, .hero .subtitle{
+  margin-top: var(--space-2);
+  color: var(--fg-1);
+  max-width: 75ch;
+}
+
+.section{
+  margin: 0 0 var(--space-6);
+}
+.section > .section__head{
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-3);
+}
+.section h2, .section .h2{
+  font-size: clamp(1.05rem, 1.8vw, 1.35rem);
+  letter-spacing: -0.01em;
+  line-height: var(--lh-tight);
+}
+.section .muted{ color: var(--fg-2); font-size: var(--text-sm); }
+
+/* [ÄNDERUNG/MARKER 8] CARDS + GRID (2/3 columns responsive, glow/soft border) */
+.cardsGrid{
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-4);
+}
+@media (min-width: 720px){
+  .cardsGrid{ grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (min-width: 1160px){
+  .cardsGrid{ grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
+.card,
+.miniCard{
+  border-radius: var(--r-lg);
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  box-shadow: var(--glow-soft), var(--shadow-1);
+  backdrop-filter: blur(var(--backdrop-blur)) saturate(var(--backdrop-sat));
+  -webkit-backdrop-filter: blur(var(--backdrop-blur)) saturate(var(--backdrop-sat));
+  padding: var(--space-4);
+  position: relative;
+  overflow: hidden;
+}
+
+/* subtle inner highlight */
+.card::before,
+.miniCard::before{
+  content:"";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(900px 240px at 20% 0%, rgba(255,255,255,.08), transparent 55%),
+    linear-gradient(180deg, rgba(255,255,255,.06), transparent 30%);
+  opacity: .65;
+}
+
+.card > *{ position: relative; }
+.miniCard{ padding: var(--space-3); border-radius: var(--r-md); background: rgba(16,18,42,.58); }
+
+.card--wide{
+  grid-column: 1 / -1;
+  background: var(--card-bg-strong);
+  border-color: rgba(255,255,255,.12);
+}
+
+.card h3, .card .h3, .miniCard h3, .miniCard .h3{
+  font-size: 1.08rem;
+  letter-spacing: -0.01em;
+  line-height: var(--lh-tight);
+}
+.card p, .miniCard p{ color: var(--fg-1); margin-top: var(--space-2); }
+.card .subtle, .miniCard .subtle{ color: var(--fg-2); font-size: var(--text-sm); }
+
+/* hover should not be only signal: keep border & add shadow + slight lift */
+@media (hover:hover){
+  .card:hover, .miniCard:hover{
+    border-color: rgba(122,108,255,.26);
+    box-shadow: 0 0 0 1px rgba(122,108,255,.18), var(--shadow-2);
+    transform: translateY(-1px);
+    transition: transform var(--t-med) var(--ease), box-shadow var(--t-med) var(--ease), border-color var(--t-med) var(--ease);
+  }
+}
+.card, .miniCard{
+  transition: transform var(--t-med) var(--ease), box-shadow var(--t-med) var(--ease), border-color var(--t-med) var(--ease), background var(--t-med) var(--ease);
+}
+
+/* [ÄNDERUNG/MARKER 9] NAV (Sidebar navigation) */
+.nav{
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0 0 var(--space-4);
+}
+.nav__item{
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: 10px 12px;
+  border-radius: var(--r-md);
+  border: 1px solid rgba(255,255,255,.08);
+  background: rgba(255,255,255,.03);
+  color: var(--fg-1);
+  user-select: none;
+  cursor: pointer;
+  transition: background var(--t-med) var(--ease), border-color var(--t-med) var(--ease), transform var(--t-med) var(--ease);
+}
+.nav__item:hover{
+  background: rgba(122,108,255,.08);
+  border-color: rgba(122,108,255,.22);
+}
+.nav__item[aria-current="true"],
+.nav__item.is-active{
+  background: rgba(122,108,255,.14);
+  border-color: rgba(122,108,255,.32);
+  color: var(--fg-0);
+}
+.nav__item .meta{
+  color: var(--fg-2);
+  font-size: var(--text-xs);
+}
+
+/* [ÄNDERUNG/MARKER 10] BUTTONS (primary / ghost / icon) */
+.btn{
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: var(--r-md);
+  border: 1px solid rgba(255,255,255,.12);
+  background: rgba(255,255,255,.04);
+  color: var(--fg-0);
+  font-weight: 650;
+  letter-spacing: 0.01em;
+  user-select: none;
+  transition: transform var(--t-fast) var(--ease), background var(--t-med) var(--ease), border-color var(--t-med) var(--ease), box-shadow var(--t-med) var(--ease);
+}
+.btn:active{ transform: translateY(1px); }
+.btn[disabled], .btn[aria-disabled="true"]{
+  opacity: .55;
+  cursor: not-allowed;
+}
+
+.btn--primary{
+  background: linear-gradient(135deg, rgba(122,108,255,.95), rgba(89,210,255,.65));
+  border-color: rgba(122,108,255,.55);
+  box-shadow: 0 10px 30px rgba(122,108,255,.18);
+}
+.btn--primary:hover{
+  background: linear-gradient(135deg, rgba(122,108,255,1), rgba(89,210,255,.78));
+  border-color: rgba(89,210,255,.55);
+  box-shadow: 0 14px 38px rgba(122,108,255,.22);
+}
+
+.btn--ghost{
+  background: rgba(255,255,255,.03);
+  border-color: rgba(255,255,255,.14);
+  color: var(--fg-0);
+}
+.btn--ghost:hover{
+  background: rgba(255,255,255,.06);
+  border-color: rgba(122,108,255,.26);
+}
+
+.icon-btn{
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,.12);
+  background: rgba(255,255,255,.04);
+  display: inline-grid;
+  place-items: center;
+  transition: background var(--t-med) var(--ease), border-color var(--t-med) var(--ease), transform var(--t-fast) var(--ease), box-shadow var(--t-med) var(--ease);
+}
+.icon-btn:hover{
+  background: rgba(122,108,255,.10);
+  border-color: rgba(122,108,255,.26);
+  box-shadow: 0 0 0 1px rgba(122,108,255,.12);
+}
+.icon-btn:active{ transform: translateY(1px); }
+
+/* [ÄNDERUNG/MARKER 11] TOOLBAR + TASK ROW (utility layouts) */
+.toolbar{
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+}
+.taskRow{
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: var(--space-3);
+}
+.taskRow > *{ min-width: 0; }
+
+/* [ÄNDERUNG/MARKER 12] INPUTS (text, textarea, checkbox, toggle) */
+.inputRow{
+  display: grid;
+  gap: 8px;
+  margin-top: var(--space-3);
+}
+.label{
+  font-size: var(--text-sm);
+  color: var(--fg-1);
+  font-weight: 650;
+  letter-spacing: 0.01em;
+}
+.input{
+  width: 100%;
+  border-radius: var(--r-md);
+  border: 1px solid rgba(255,255,255,.14);
+  background: rgba(5, 6, 14, .35);
+  padding: 11px 12px;
+  color: var(--fg-0);
+  box-shadow: inset 0 0 0 1px rgba(0,0,0,.15);
+  transition: border-color var(--t-med) var(--ease), background var(--t-med) var(--ease), box-shadow var(--t-med) var(--ease);
+}
+.input::placeholder{ color: rgba(255,255,255,.38); }
+.input:hover{
+  border-color: rgba(122,108,255,.28);
+}
+.input:focus-visible{
+  border-color: rgba(122,108,255,.45);
+  box-shadow: var(--focus);
+  background: rgba(5, 6, 14, .45);
+}
+
+textarea.input{
+  min-height: 120px;
+  resize: vertical;
+}
+
+/* checkbox group */
+.checklist{
+  display: grid;
+  gap: 10px;
+  margin-top: var(--space-3);
+}
+.check{
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: var(--r-md);
+  border: 1px solid rgba(255,255,255,.10);
+  background: rgba(255,255,255,.03);
+}
+.check input[type="checkbox"]{
+  width: 18px;
+  height: 18px;
+  margin-top: 2px;
+  accent-color: var(--brand);
+}
+.check label, .check .text{
+  color: var(--fg-1);
+  font-size: var(--text-sm);
+}
+.check .subtle{
+  display: block;
+  color: var(--fg-2);
+  margin-top: 4px;
+  font-size: var(--text-xs);
+}
+
+/* toggle (expects markup: input[type=checkbox] + .toggleTrack + .toggleThumb OR similar)
+   We style a generic pattern if you use .toggle inside .check or .inputRow.
+*/
+.toggle{
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+.toggle input[type="checkbox"]{
+  position: absolute;
+  opacity: 0;
+  width: 1px; height: 1px;
+}
+.toggle .toggleTrack{
+  width: 46px;
+  height: 28px;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,.16);
+  background: rgba(255,255,255,.06);
+  position: relative;
+  transition: background var(--t-med) var(--ease), border-color var(--t-med) var(--ease), box-shadow var(--t-med) var(--ease);
+  box-shadow: inset 0 0 0 1px rgba(0,0,0,.18);
+}
+.toggle .toggleThumb{
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  background: rgba(255,255,255,.88);
+  position: absolute;
+  top: 50%;
+  left: 3px;
+  transform: translateY(-50%);
+  transition: transform var(--t-med) var(--ease), background var(--t-med) var(--ease);
+  box-shadow: 0 8px 18px rgba(0,0,0,.35);
+}
+.toggle input[type="checkbox"]:focus-visible + .toggleTrack{
+  box-shadow: var(--focus);
+}
+.toggle input[type="checkbox"]:checked + .toggleTrack{
+  background: rgba(122,108,255,.28);
+  border-color: rgba(122,108,255,.45);
+}
+.toggle input[type="checkbox"]:checked + .toggleTrack .toggleThumb{
+  transform: translate(18px, -50%);
+  background: rgba(255,255,255,.95);
+}
+
+/* [ÄNDERUNG/MARKER 13] ACCORDION (header/body) */
+.accordion{
+  border-radius: var(--r-lg);
+  border: 1px solid rgba(255,255,255,.10);
+  background: rgba(255,255,255,.03);
+  overflow: hidden;
+  margin-top: var(--space-3);
+}
+.accordion__header{
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: 12px 14px;
+  cursor: pointer;
+  user-select: none;
+  background: rgba(255,255,255,.03);
+  border-bottom: 1px solid rgba(255,255,255,.08);
+  transition: background var(--t-med) var(--ease), border-color var(--t-med) var(--ease);
+}
+.accordion__header:hover{
+  background: rgba(122,108,255,.08);
+}
+.accordion__header .title{
+  font-weight: 700;
+  color: var(--fg-0);
+  font-size: var(--text-sm);
+}
+.accordion__header .chev{
+  color: var(--fg-2);
+  transition: transform var(--t-med) var(--ease);
+}
+.accordion.is-open .accordion__header .chev{
+  transform: rotate(180deg);
+}
+.accordion__body{
+  padding: 14px;
+  color: var(--fg-1);
+  background: rgba(5, 6, 14, .18);
+}
+
+/* [ÄNDERUNG/MARKER 14] VIDEO BOX */
+.videoBox{
+  border-radius: var(--r-lg);
+  border: 1px solid rgba(255,255,255,.10);
+  background: rgba(0,0,0,.22);
+  box-shadow: var(--shadow-1);
+  overflow: hidden;
+  margin-top: var(--space-3);
+}
+.video{
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  display: block;
+  border: 0;
+}
+
+/* [ÄNDERUNG/MARKER 15] CALLOUTS (warn/info + base) */
+.callout{
+  border-radius: var(--r-lg);
+  border: 1px solid rgba(255,255,255,.12);
+  background: rgba(255,255,255,.04);
+  padding: 12px 14px;
+  color: var(--fg-1);
+  box-shadow: 0 0 0 1px rgba(0,0,0,.10);
+  display: grid;
+  grid-template-columns: 24px 1fr;
+  gap: 12px;
+  align-items: start;
+}
+.callout::before{
+  content:"i";
+  width: 24px;
+  height: 24px;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  font-weight: 800;
+  font-size: 13px;
+  color: rgba(0,0,0,.85);
+  background: rgba(255,255,255,.80);
+  box-shadow: 0 10px 20px rgba(0,0,0,.25);
+}
+.callout--info{
+  border-color: rgba(167,139,250,.35);
+  background: rgba(167,139,250,.08);
+}
+.callout--info::before{
+  content:"i";
+  background: rgba(167,139,250,.95);
+  color: rgba(8, 8, 18, .92);
+}
+.callout--warn{
+  border-color: rgba(255,176,32,.34);
+  background: rgba(255,176,32,.08);
+}
+.callout--warn::before{
+  content:"!";
+  background: rgba(255,176,32,.96);
+  color: rgba(8, 8, 18, .92);
+}
+
+/* [ÄNDERUNG/MARKER 16] QUIZ / QA ITEMS + FEEDBACK (ok/bad/hint/solution/info) */
+.quiz{
+  display: grid;
+  gap: var(--space-4);
+  margin-top: var(--space-3);
+}
+
+.qa-item{
+  border-radius: var(--r-lg);
+  border: 1px solid rgba(255,255,255,.10);
+  background: rgba(255,255,255,.03);
+  padding: var(--space-4);
+  box-shadow: 0 0 0 1px rgba(0,0,0,.12);
+}
+.qa-item .q{
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  line-height: var(--lh-tight);
+  margin-bottom: 10px;
+}
+.qa-item .help{
+  color: var(--fg-2);
+  font-size: var(--text-sm);
+  margin-top: 8px;
+}
+
+.qa-feedback,
+.feedback{
+  margin-top: 12px;
+  border-radius: var(--r-lg);
+  border: 1px solid rgba(255,255,255,.12);
+  background: rgba(0,0,0,.22);
+  padding: 12px 14px;
+  display: grid;
+  grid-template-columns: 26px 1fr;
+  gap: 12px;
+  align-items: start;
+  color: var(--fg-1);
+}
+
+/* base icon bubble */
+.qa-feedback::before,
+.feedback::before{
+  content:"";
+  width: 26px;
+  height: 26px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  font-weight: 900;
+  font-size: 13px;
+  color: rgba(8,8,18,.92);
+  background: rgba(255,255,255,.86);
+  box-shadow: 0 12px 24px rgba(0,0,0,.25);
+}
+
+/* state variants via classes:
+   - either add .ok/.bad/... on the feedback element
+   - or parent wrapper has .ok etc and feedback picks it up
+*/
+.ok .qa-feedback, .qa-feedback.ok,
+.ok .feedback, .feedback.ok{
+  border-color: rgba(49,213,140,.40);
+  background: rgba(49,213,140,.08);
+}
+.ok .qa-feedback::before, .qa-feedback.ok::before,
+.ok .feedback::before, .feedback.ok::before{
+  content:"✓";
+  background: rgba(49,213,140,.92);
+}
+
+.bad .qa-feedback, .qa-feedback.bad,
+.bad .feedback, .feedback.bad{
+  border-color: rgba(255,77,109,.42);
+  background: rgba(255,77,109,.08);
+}
+.bad .qa-feedback::before, .qa-feedback.bad::before,
+.bad .feedback::before, .feedback.bad::before{
+  content:"✕";
+  background: rgba(255,77,109,.92);
+}
+
+.hint .qa-feedback, .qa-feedback.hint,
+.hint .feedback, .feedback.hint{
+  border-color: rgba(247,201,72,.44);
+  background: rgba(247,201,72,.08);
+}
+.hint .qa-feedback::before, .qa-feedback.hint::before,
+.hint .feedback::before, .feedback.hint::before{
+  content:"?";
+  background: rgba(247,201,72,.94);
+}
+
+.solution .qa-feedback, .qa-feedback.solution,
+.solution .feedback, .feedback.solution{
+  border-color: rgba(91,208,255,.46);
+  background: rgba(91,208,255,.08);
+}
+.solution .qa-feedback::before, .qa-feedback.solution::before,
+.solution .feedback::before, .feedback.solution::before{
+  content:"★";
+  background: rgba(91,208,255,.94);
+}
+
+.info .qa-feedback, .qa-feedback.info,
+.info .feedback, .feedback.info{
+  border-color: rgba(167,139,250,.46);
+  background: rgba(167,139,250,.08);
+}
+.info .qa-feedback::before, .qa-feedback.info::before,
+.info .feedback::before, .feedback.info::before{
+  content:"i";
+  background: rgba(167,139,250,.95);
+}
+
+/* feedback text spacing */
+.qa-feedback p, .feedback p{ margin: 0; color: var(--fg-1); }
+.qa-feedback .title, .feedback .title{
+  font-weight: 800;
+  color: var(--fg-0);
+  margin-bottom: 4px;
+}
+.qa-feedback .small, .feedback .small{ font-size: var(--text-sm); color: var(--fg-2); }
+
+/* [ÄNDERUNG/MARKER 17] PROGRESS (Sidebar progress box + bar + percent) */
+.progressBox{
+  border-radius: var(--r-lg);
+  border: 1px solid rgba(255,255,255,.12);
+  background: rgba(255,255,255,.03);
+  padding: var(--space-4);
+  box-shadow: 0 0 0 1px rgba(0,0,0,.12);
+}
+.progressBox .row{
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: 10px;
+}
+.progressBox .label{
+  margin: 0;
+  font-size: var(--text-sm);
+}
+.progressBox .percent{
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  color: var(--fg-1);
+}
+
+.progressBar{
+  width: 100%;
+  height: 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,.14);
+  background: rgba(0,0,0,.24);
+  overflow: hidden;
+  box-shadow: inset 0 0 0 1px rgba(0,0,0,.18);
+}
+.progressBar__fill{
+  height: 100%;
+  width: 0%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, rgba(122,108,255,.95), rgba(89,210,255,.70));
+  box-shadow: 0 0 24px rgba(122,108,255,.18);
+  transition: width var(--t-slow) var(--ease);
+}
+
+/* [ÄNDERUNG/MARKER 18] TABLE-LIKE ELEMENTS + MISC (nice defaults) */
+code, pre{
+  font-family: var(--font-mono);
+  font-size: .92em;
+}
+pre{
+  margin: 0;
+  padding: 12px 14px;
+  border-radius: var(--r-lg);
+  border: 1px solid rgba(255,255,255,.10);
+  background: rgba(0,0,0,.22);
+  overflow: auto;
+}
+kbd{
+  font-family: var(--font-mono);
+  font-size: .86em;
+  padding: 2px 6px;
+  border-radius: 8px;
+  border: 1px solid rgba(255,255,255,.12);
+  background: rgba(255,255,255,.06);
+}
+
+/* [ÄNDERUNG/MARKER 19] SCROLLBAR (subtle, consistent) */
+*{
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255,255,255,.18) rgba(0,0,0,.12);
+}
+*::-webkit-scrollbar{ width: 10px; height: 10px; }
+*::-webkit-scrollbar-track{ background: rgba(0,0,0,.10); border-radius: 999px; }
+*::-webkit-scrollbar-thumb{
+  background: rgba(255,255,255,.16);
+  border: 2px solid rgba(0,0,0,.08);
+  border-radius: 999px;
+}
+*::-webkit-scrollbar-thumb:hover{ background: rgba(255,255,255,.22); }
+
+/* [ÄNDERUNG/MARKER 20] RESPONSIVE REFINEMENTS (mobile-first -> larger) */
+@media (min-width: 560px){
+  .layout{ padding: var(--space-5); gap: var(--space-5); }
+  .topbar{ padding: 0 var(--space-5); }
+  .main, .sidebar{ padding: var(--space-5); }
+}
+
+@media (max-width: 420px){
+  .topbar{ padding: 0 12px; height: 60px; }
+  :root{ --topbar-h: 60px; }
+  .btn{ width: 100%; }
+  .toolbar{ flex-direction: column; align-items: stretch; }
+}
+
+/* [ÄNDERUNG/MARKER 21] SAFETY NET: ensure readable links & states (no hover-only) */
+a{
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+  text-decoration-color: rgba(89,210,255,.35);
+}
+a:hover{
+  text-decoration-color: rgba(89,210,255,.75);
+}
+a:visited{
+  text-decoration-color: rgba(167,139,250,.45);
+}
+
+/* [ÄNDERUNG/MARKER 22] OPTIONAL: subtle separators for sections */
+.section + .section{
+  padding-top: var(--space-5);
+  border-top: 1px solid rgba(255,255,255,.06);
+}
+```
