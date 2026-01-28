@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Lernumgebung: Shoah-Erinnerung & KI-Fakes (Bilder/Videos)</title>
+
+  <!-- STYLE -->
+  <link rel="stylesheet" href="assets/css/style.css" />
+
+  <meta name="description" content="Umfangreiche Lernumgebung zur Verfälschung der Shoah-Erinnerung durch KI-generierte Fakes (Bilder/Videos), mit Analyse-Tools, Aufgaben, Quiz, Projektaufträgen und Handlungsoptionen." />
+</head>
+
+<body>
+
+<!-- =========================================================
+     ÄNDERUNG 1:
+     Navigation funktioniert nun über konsistente IDs.
+     Alle data-target-Werte entsprechen exakt vorhandenen section-IDs.
+     Scroll-Handling erfolgt über app.js (kein Umbau, nur Konsistenz).
+========================================================== -->
+
+<div class="bg-gif" aria-hidden="true"></div>
+
+<header class="topbar" role="banner">
+  <div class="topbar__left">
+    <button class="icon-btn" id="btnToggleSidebar">☰</button>
+    <div class="brand">
+      <div class="brand__title">Shoah-Erinnerung & KI-Fakes</div>
+      <div class="brand__subtitle">Gefälschte Bilder/Videos – Analyse · Ethik · Handlung</div>
+    </div>
+  </div>
+</header>
+
+<div class="layout">
+
+<aside class="sidebar" id="sidebar">
+  <div class="navBlock">
+    <div class="navBlock__title">Start</div>
+    <nav class="nav">
+      <button class="nav__item" data-target="start">Überblick & Ziele</button>
+      <button class="nav__item" data-target="sensibel">Sensibler Umgang</button>
+      <button class="nav__item" data-target="video-einstieg">Video-Einstieg</button>
+    </nav>
+  </div>
+</aside>
+
+<main class="main" id="main">
+
+<section class="section hero" id="start">
+  <h1>Verfälschung der Shoah-Erinnerung durch KI-Fakes</h1>
+</section>
+
+<section class="section" id="sensibel">
+  <h2>Sensibler Umgang</h2>
+</section>
+
+<!-- =========================================================
+     ÄNDERUNG 2:
+     Alle YouTube-iframes vollständig entfernt.
+     Ersetzt durch HTML5 <video> mit Dropbox ?raw=1
+========================================================== -->
+
+<section class="section" id="video-einstieg">
+  <h2>Video-Einstieg</h2>
+
+  <div class="card">
+    <h3>Video 1</h3>
+    <!-- ÄNDERUNG: Dropbox-Video korrekt eingebettet -->
+    <video controls preload="metadata" style="width:100%; max-width:960px;">
+      <source src="https://www.dropbox.com/scl/fi/5zohqcb0ozxi6hsw4d2q0/KI-Fakes-aus-Auschwitz-Die-falschen-Bilder-des-Holocaust.mp4?raw=1" type="video/mp4">
+    </video>
+  </div>
+
+  <div class="card">
+    <h3>Video 2</h3>
+    <!-- ÄNDERUNG: Dropbox-Video korrekt eingebettet -->
+    <video controls preload="metadata" style="width:100%; max-width:960px;">
+      <source src="https://www.dropbox.com/scl/fi/aksbcnxz1pj0pqhrzhc16/KI-Holocaust-Verf-lschungen-auf-Social-Media-Plattformen.mp4?raw=1" type="video/mp4">
+    </video>
+  </div>
+
+  <div class="card">
+    <h3>Video 3</h3>
+    <!-- ÄNDERUNG: Dropbox-Video korrekt eingebettet -->
+    <video controls preload="metadata" style="width:100%; max-width:960px;">
+      <source src="https://www.dropbox.com/scl/fi/ssucf4ttjtxtba66y48w2/Wie-KI-die-Geschichte-der-Shoah-verf-lscht-Mit-offenen-Augen-ARTE.mp4?raw=1" type="video/mp4">
+    </video>
+  </div>
+</section>
+
+<section class="section" id="quiz">
+  <h2>Quiz</h2>
+</section>
+
+<section class="section" id="links">
+  <h2>Links</h2>
+  <!-- ÄNDERUNG: YouTube-Links entfernt, nur Dropbox -->
+  <ul>
+    <li><a href="https://www.dropbox.com/scl/fi/5zohqcb0ozxi6hsw4d2q0/KI-Fakes-aus-Auschwitz-Die-falschen-Bilder-des-Holocaust.mp4?raw=1" target="_blank">Video 1 (Dropbox)</a></li>
+    <li><a href="https://www.dropbox.com/scl/fi/aksbcnxz1pj0pqhrzhc16/KI-Holocaust-Verf-lschungen-auf-Social-Media-Plattformen.mp4?raw=1" target="_blank">Video 2 (Dropbox)</a></li>
+    <li><a href="https://www.dropbox.com/scl/fi/ssucf4ttjtxtba66y48w2/Wie-KI-die-Geschichte-der-Shoah-verf-lscht-Mit-offenen-Augen-ARTE.mp4?raw=1" target="_blank">Video 3 (Dropbox)</a></li>
+  </ul>
+</section>
+
+</main>
+</div>
+
+<script src="assets/js/app.js"></script>
+</body>
+</html>
